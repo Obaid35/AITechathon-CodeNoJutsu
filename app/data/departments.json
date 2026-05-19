@@ -1,0 +1,74 @@
+{
+  "departments": [
+    {
+      "id": "water_supply",
+      "name_en": "Water Supply",
+      "name_ur": "محکمہ آبپاشی",
+      "sub_categories": ["outage", "quality", "leakage", "billing", "pressure"],
+      "response_template_ur": "آپ کی شکایت درج کی جا چکی ہے۔ محکمہ آبپاشی کو بھیج دی گئی ہے۔"
+    },
+    {
+      "id": "electricity",
+      "name_en": "Electricity",
+      "name_ur": "محکمہ بجلی",
+      "sub_categories": ["outage", "billing", "meter", "voltage", "transformer"],
+      "response_template_ur": "آپ کی شکایت درج کی جا چکی ہے۔ محکمہ بجلی کو بھیج دی گئی ہے۔"
+    },
+    {
+      "id": "roads",
+      "name_en": "Roads & Infrastructure",
+      "name_ur": "محکمہ سڑکیں",
+      "sub_categories": ["pothole", "traffic_signal", "road_damage", "construction", "flooding"],
+      "response_template_ur": "آپ کی شکایت درج کی جا چکی ہے۔ محکمہ سڑکوں کو بھیج دی گئی ہے۔"
+    },
+    {
+      "id": "sanitation",
+      "name_en": "Sanitation",
+      "name_ur": "محکمہ صفائی",
+      "sub_categories": ["sewage", "garbage", "drain", "cleaning", "waste"],
+      "response_template_ur": "آپ کی شکایت درج کی جا چکی ہے۔ محکمہ صفائی کو بھیج دی گئی ہے۔"
+    },
+    {
+      "id": "police",
+      "name_en": "Police",
+      "name_ur": "محکمہ پولیس",
+      "sub_categories": ["crime", "harassment", "traffic", "noise", "theft"],
+      "response_template_ur": "آپ کی شکایت درج کی جا چکی ہے۔ محکمہ پولیس کو بھیج دی گئی ہے۔"
+    },
+    {
+      "id": "health",
+      "name_en": "Health",
+      "name_ur": "محکمہ صحت",
+      "sub_categories": ["hospital", "medicine", "ambulance", "clinic", "emergency"],
+      "response_template_ur": "آپ کی شکایت درج کی جا چکی ہے۔ محکمہ صحت کو فوری طور پر بھیج دی گئی ہے۔"
+    },
+    {
+      "id": "education",
+      "name_en": "Education",
+      "name_ur": "محکمہ تعلیم",
+      "sub_categories": ["school", "teacher", "infrastructure", "admission", "curriculum"],
+      "response_template_ur": "آپ کی شکایت درج کی جا چکی ہے۔ محکمہ تعلیم کو بھیج دی گئی ہے۔"
+    },
+    {
+      "id": "revenue",
+      "name_en": "Revenue & Land",
+      "name_ur": "محکمہ مال",
+      "sub_categories": ["land_record", "tax", "property", "dispute", "registry"],
+      "response_template_ur": "آپ کی شکایت درج کی جا چکی ہے۔ محکمہ مال کو بھیج دی گئی ہے۔"
+    },
+    {
+      "id": "gas",
+      "name_en": "Gas Supply",
+      "name_ur": "محکمہ گیس",
+      "sub_categories": ["supply", "leakage", "billing", "meter", "pressure"],
+      "response_template_ur": "آپ کی شکایت درج کی جا چکی ہے۔ محکمہ گیس کو بھیج دی گئی ہے۔"
+    },
+    {
+      "id": "telecom",
+      "name_en": "Telecom",
+      "name_ur": "محکمہ ٹیلی کام",
+      "sub_categories": ["network", "billing", "internet", "coverage", "service"],
+      "response_template_ur": "آپ کی شکایت درج کی جا چکی ہے۔ محکمہ ٹیلی کام کو بھیج دی گئی ہے۔"
+    }
+  ]
+}

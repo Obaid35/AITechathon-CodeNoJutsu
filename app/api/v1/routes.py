@@ -1,0 +1,51 @@
+"""API v1 routes — classify and batch-classify endpoints.
+
+Constitution III: All route handlers are async def.
+Constitution IV: Pydantic models for all request/response bodies.
+Constitution VI: Structured errors with request_id.
+"""
+
+from fastapi import APIRouter, Request
+
+from app.core.errors import NaqsKARException
+from app.core.logging import get_logger
+from app.schemas.classification import ClassifyResponse
+from app.schemas.complaint import ClassifyRequest
+
+logger = get_logger("api.v1")
+
+router = APIRouter(prefix="/api/v1", tags=["classification"])
+
+
+@router.post("/classify", response_model=ClassifyResponse)
+async def classify_complaint(
+    request: Request,
+    body: ClassifyRequest,
+) -> ClassifyResponse:
+    """Classify a single citizen complaint.
+
+    Accepts Roman Urdu, Urdu script, or English text and returns
+    structured classification with department, urgency, geo-location,
+    and suggested Urdu response.
+    """
+    pipeline = request.app.state.pipeline
+    if pipeline is None:
+        raise NaqsKARException(
+            error_code="PIPELINE_NOT_READY",
+            message="Classification pipeline is not initialized yet",
+            status_code=503,
+        )
+
+    request_id = getattr(request.state, "request_id", "unknown")
+    logger.info("classify_start", request_id=request_id, text_length=len(body.text))
+
+    result = await pipeline.process(body, request_id=request_id)
+
+    logger.info(
+        "classify_complete",
+        request_id=request_id,
+        department=result.classification.department,
+        duration_ms=result.processing_time_ms,
+    )
+
+    return result

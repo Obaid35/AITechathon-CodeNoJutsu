@@ -13,9 +13,13 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.core.config import Settings, get_settings
+from app.core.config import get_settings
 from app.core.errors import NaqsKARException
 from app.core.logging import generate_request_id, get_logger, setup_logging
+from app.modules.classifier import create_classifier
+from app.modules.geo_extractor import create_geo_extractor
+from app.modules.normalizer import create_normalizer
+from app.orchestrator.pipeline import ComplaintPipeline
 
 logger = get_logger("main")
 
@@ -29,19 +33,37 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("naqskar_starting", host=settings.host, port=settings.port)
 
     # Shared HTTP client for LLM API calls
-    app.state.http_client = httpx.AsyncClient(timeout=30.0)
+    http_client = httpx.AsyncClient(timeout=30.0)
+    app.state.http_client = http_client
     app.state.settings = settings
     app.state.start_time = time.time()
 
-    # Pipeline will be initialized here once modules are wired (Phase 3)
-    app.state.pipeline = None
+    # Initialize ML modules via factories (Constitution V)
+    normalizer = create_normalizer(settings, http_client)
+    classifier = create_classifier(settings, http_client)
+    geo_extractor = create_geo_extractor(settings, http_client)
+
+    # Wire pipeline (Constitution I: end-to-end working system)
+    app.state.pipeline = ComplaintPipeline(
+        normalizer=normalizer,
+        classifier=classifier,
+        geo_extractor=geo_extractor,
+        deduplicator=None,  # Wired in Phase 5 (US3)
+    )
+
+    # Complaint store for analytics (wired in Phase 6 / US4)
     app.state.complaint_store = None
 
-    logger.info("naqskar_ready")
+    logger.info(
+        "naqskar_ready",
+        normalizer=type(normalizer).__name__,
+        classifier=type(classifier).__name__,
+        geo=type(geo_extractor).__name__ if geo_extractor else "disabled",
+    )
     yield
 
     # Shutdown
-    await app.state.http_client.aclose()
+    await http_client.aclose()
     logger.info("naqskar_shutdown")
 
 
@@ -94,11 +116,8 @@ async def request_id_middleware(request: Request, call_next):
 
 
 # --- Import and include routers ---
-# These imports are here to avoid circular imports with app.state
 from app.api.v1.health import router as health_router  # noqa: E402
+from app.api.v1.routes import router as v1_router  # noqa: E402
 
 app.include_router(health_router)
-
-# v1 routes will be included once they exist (Phase 3)
-# from app.api.v1.routes import router as v1_router
-# app.include_router(v1_router, prefix="/api/v1")
+app.include_router(v1_router)
