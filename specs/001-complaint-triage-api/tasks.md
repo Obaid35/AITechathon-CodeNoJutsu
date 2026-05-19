@@ -19,10 +19,10 @@
 
 **Purpose**: Project initialization and dependency configuration
 
-- [ ] T001 Create project directory structure per plan.md (`app/`, `app/api/v1/`, `app/core/`, `app/schemas/`, `app/modules/normalizer/`, `app/modules/classifier/`, `app/modules/geo_extractor/`, `app/modules/deduplication/`, `app/orchestrator/`, `app/data/`, `dashboard/`, `tests/unit/`, `tests/integration/`, `tests/contract/`)
-- [ ] T002 Create `requirements.txt` with pinned dependencies: fastapi==0.100.0, uvicorn==0.23.0, pydantic==2.0.0, pydantic-settings, httpx, anthropic, sentence-transformers, scikit-learn, python-dotenv, numpy, structlog
-- [ ] T003 [P] Create `.env.example` with all config variables from quickstart.md (`ANTHROPIC_API_KEY`, `APP_LLM_PROVIDER`, `APP_NORMALIZER_STRATEGY`, `APP_CLASSIFIER_STRATEGY`, `APP_GEO_STRATEGY`, `APP_DEDUP_STRATEGY`, `HOST`, `PORT`, `DEBUG`, `DEDUP_WINDOW_DAYS`, `DEDUP_RADIUS_METERS`)
-- [ ] T004 [P] Create `app/core/config.py` — Pydantic Settings class loading all env vars with defaults, strategy enum types (`llm`|`keyword`|`none`), LLM provider enum (`claude`|`ollama`)
+- [x] T001 Create project directory structure per plan.md (`app/`, `app/api/v1/`, `app/core/`, `app/schemas/`, `app/modules/normalizer/`, `app/modules/classifier/`, `app/modules/geo_extractor/`, `app/modules/deduplication/`, `app/orchestrator/`, `app/data/`, `dashboard/`, `tests/unit/`, `tests/integration/`, `tests/contract/`)
+- [x] T002 Create `requirements.txt` with pinned dependencies: fastapi==0.100.0, uvicorn==0.23.0, pydantic==2.0.0, pydantic-settings, httpx, anthropic, sentence-transformers, scikit-learn, python-dotenv, numpy, structlog
+- [x] T003 [P] Create `.env.example` with all config variables from quickstart.md (`ANTHROPIC_API_KEY`, `APP_LLM_PROVIDER`, `APP_NORMALIZER_STRATEGY`, `APP_CLASSIFIER_STRATEGY`, `APP_GEO_STRATEGY`, `APP_DEDUP_STRATEGY`, `HOST`, `PORT`, `DEBUG`, `DEDUP_WINDOW_DAYS`, `DEDUP_RADIUS_METERS`)
+- [x] T004 [P] Create `app/core/config.py` — Pydantic Settings class loading all env vars with defaults, strategy enum types (`llm`|`keyword`|`none`), LLM provider enum (`claude`|`ollama`)
 
 ---
 
@@ -32,18 +32,18 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T005 Create `app/core/errors.py` — `ErrorResponse` Pydantic model with `error_code`, `message`, `details` fields; `NaqsKARException` base class; `ValidationError` and `ProviderUnavailableError` subclasses
-- [ ] T006 [P] Create `app/core/logging.py` — Structured JSON logger using structlog, middleware that generates `request_id` (UUID4) per request and injects it into log context, log fields: `request_id`, `module`, `duration_ms`, `status`
-- [ ] T007 Create `app/schemas/complaint.py` — `ClassifyRequest` model (text: str min=3 max=5000, language: Optional[LanguageEnum], user_id: Optional[str] max=128, timestamp: Optional[datetime], location_hint: Optional[str]) and `BatchClassifyRequest` model (complaints: list[ClassifyRequest] min=1 max=100). Include `model_config` with `json_schema_extra` examples per Constitution IV
-- [ ] T008 [P] Create `app/schemas/classification.py` — `ClassificationResult` model (department: str, sub_category: str, urgency_score: float 0-1, sentiment: SentimentEnum, confidence: float, urgency_keywords_matched: list[str]) and `ClassifyResponse` model (schema_version: str="1.0", request_id: str, classification, location, cluster, suggested_response_urdu, processing_time_ms, _warnings: Optional[list])
-- [ ] T009 [P] Create `app/schemas/location.py` — `LocationResult` model (raw_location, resolved_name, latitude: Optional[float], longitude: Optional[float], confidence: float, source: SourceEnum[gazetteer|llm_fallback|none], city: Optional[str])
-- [ ] T010 [P] Create `app/schemas/cluster.py` — `ClusterInfo` model (cluster_id: Optional[str], is_duplicate: bool, cluster_size: Optional[int], cluster_weight: Optional[float], similarity_score: Optional[float])
-- [ ] T011 [P] Create `app/schemas/analytics.py` — `AnalyticsQuery` model (region: str="all", days: int=7 range 1-90, department: str="all"), `ClusterSummary` model, and `AnalyticsSummary` response model per contracts/analytics.md
-- [ ] T012 [P] Create `app/schemas/__init__.py` — Re-export all schema classes for convenient imports
-- [ ] T013 Create `app/data/departments.json` — Department taxonomy with 10 entries: water_supply, electricity, roads, sanitation, police, health, education, revenue, gas, telecom. Each with id, name_en, name_ur, sub_categories list, and response_template_ur
-- [ ] T014 [P] Create `app/data/pakistan_gazetteer.json` — Gazetteer with ~50 entries covering Islamabad sectors (F-6 through I-10), Lahore areas (Gulberg, DHA, Johar Town), Karachi areas (Clifton, Nazimabad, Korangi), and major landmarks. Each with name, aliases, city, lat, lon
-- [ ] T015 [P] Create `app/data/response_templates.json` — Urdu response templates keyed by department (10 entries), each with acknowledgment text in Urdu script
-- [ ] T016 Create `app/main.py` — FastAPI app with lifespan context manager (init httpx.AsyncClient, load config, placeholder for pipeline init), CORS middleware with explicit origins, error exception handlers mapping NaqsKARException to JSON responses, include v1 router. App MUST start with `uvicorn app.main:app` and serve `/health`
+- [x] T005 Create `app/core/errors.py` — `ErrorResponse` Pydantic model with `error_code`, `message`, `details` fields; `NaqsKARException` base class; `ValidationError` and `ProviderUnavailableError` subclasses
+- [x] T006 [P] Create `app/core/logging.py` — Structured JSON logger using structlog, middleware that generates `request_id` (UUID4) per request and injects it into log context, log fields: `request_id`, `module`, `duration_ms`, `status`
+- [x] T007 Create `app/schemas/complaint.py` — `ClassifyRequest` model (text: str min=3 max=5000, language: Optional[LanguageEnum], user_id: Optional[str] max=128, timestamp: Optional[datetime], location_hint: Optional[str]) and `BatchClassifyRequest` model (complaints: list[ClassifyRequest] min=1 max=100). Include `model_config` with `json_schema_extra` examples per Constitution IV
+- [x] T008 [P] Create `app/schemas/classification.py` — `ClassificationResult` model (department: str, sub_category: str, urgency_score: float 0-1, sentiment: SentimentEnum, confidence: float, urgency_keywords_matched: list[str]) and `ClassifyResponse` model (schema_version: str="1.0", request_id: str, classification, location, cluster, suggested_response_urdu, processing_time_ms, _warnings: Optional[list])
+- [x] T009 [P] Create `app/schemas/location.py` — `LocationResult` model (raw_location, resolved_name, latitude: Optional[float], longitude: Optional[float], confidence: float, source: SourceEnum[gazetteer|llm_fallback|none], city: Optional[str])
+- [x] T010 [P] Create `app/schemas/cluster.py` — `ClusterInfo` model (cluster_id: Optional[str], is_duplicate: bool, cluster_size: Optional[int], cluster_weight: Optional[float], similarity_score: Optional[float])
+- [x] T011 [P] Create `app/schemas/analytics.py` — `AnalyticsQuery` model (region: str="all", days: int=7 range 1-90, department: str="all"), `ClusterSummary` model, and `AnalyticsSummary` response model per contracts/analytics.md
+- [x] T012 [P] Create `app/schemas/__init__.py` — Re-export all schema classes for convenient imports
+- [x] T013 Create `app/data/departments.json` — Department taxonomy with 10 entries: water_supply, electricity, roads, sanitation, police, health, education, revenue, gas, telecom. Each with id, name_en, name_ur, sub_categories list, and response_template_ur
+- [x] T014 [P] Create `app/data/pakistan_gazetteer.json` — Gazetteer with ~50 entries covering Islamabad sectors (F-6 through I-10), Lahore areas (Gulberg, DHA, Johar Town), Karachi areas (Clifton, Nazimabad, Korangi), and major landmarks. Each with name, aliases, city, lat, lon
+- [x] T015 [P] Create `app/data/response_templates.json` — Urdu response templates keyed by department (10 entries), each with acknowledgment text in Urdu script
+- [x] T016 Create `app/main.py` — FastAPI app with lifespan context manager (init httpx.AsyncClient, load config, placeholder for pipeline init), CORS middleware with explicit origins, error exception handlers mapping NaqsKARException to JSON responses, include v1 router. App MUST start with `uvicorn app.main:app` and serve `/health`
 
 **Checkpoint**: Foundation ready — `uvicorn app.main:app` starts, `/health` returns basic status, all schemas importable, data files loadable.
 
@@ -57,33 +57,33 @@
 
 ### Normalizer Module
 
-- [ ] T017 Create `app/modules/normalizer/protocol.py` — `NormalizerProtocol` ABC with abstract async method `process(request: ClassifyRequest) -> NormalizedComplaint` where `NormalizedComplaint` is a Pydantic model with fields: original_text, normalized_text, detected_language, extracted_intent, extracted_entities (dict), confidence (float)
-- [ ] T018 Create `app/modules/normalizer/llm_strategy.py` — `LLMNormalizer(NormalizerProtocol)` that uses `httpx.AsyncClient` to call Claude API with a few-shot system prompt (5-8 examples of Roman Urdu / Urdu / English → structured intent). Must output JSON. Include fallback to return raw text with low confidence if LLM fails
-- [ ] T019 [P] [US1] Create `app/modules/normalizer/__main__.py` — Standalone demo: creates LLMNormalizer, runs 3 sample complaints (Roman Urdu, Urdu script, English), prints results. Runnable via `python -m app.modules.normalizer`
-- [ ] T020 [P] [US1] Create `app/modules/normalizer/__init__.py` — Factory function `create_normalizer(config: Settings) -> NormalizerProtocol` that returns the strategy based on `config.normalizer_strategy`
+- [x] T017 Create `app/modules/normalizer/protocol.py` — `NormalizerProtocol` ABC with abstract async method `process(request: ClassifyRequest) -> NormalizedComplaint` where `NormalizedComplaint` is a Pydantic model with fields: original_text, normalized_text, detected_language, extracted_intent, extracted_entities (dict), confidence (float)
+- [x] T018 Create `app/modules/normalizer/llm_strategy.py` — `LLMNormalizer(NormalizerProtocol)` that uses `httpx.AsyncClient` to call Claude API with a few-shot system prompt (5-8 examples of Roman Urdu / Urdu / English → structured intent). Must output JSON. Include fallback to return raw text with low confidence if LLM fails
+- [x] T019 [P] [US1] Create `app/modules/normalizer/__main__.py` — Standalone demo: creates LLMNormalizer, runs 3 sample complaints (Roman Urdu, Urdu script, English), prints results. Runnable via `python -m app.modules.normalizer`
+- [x] T020 [P] [US1] Create `app/modules/normalizer/__init__.py` — Factory function `create_normalizer(config: Settings) -> NormalizerProtocol` that returns the strategy based on `config.normalizer_strategy`
 
 ### Classifier Module
 
-- [ ] T021 [US1] Create `app/modules/classifier/protocol.py` — `ClassifierProtocol` ABC with abstract async method `classify(normalized: NormalizedComplaint) -> ClassificationResult`
-- [ ] T022 [US1] Create `app/modules/classifier/keyword_urgency.py` — `UrgencyBooster` class with a hardcoded list of urgency keywords (baccha, hospital, khoon, aag, zakhmi, ambulance, maut, emergency, etc.) in Roman Urdu and English. Method `boost(result: ClassificationResult, original_text: str) -> ClassificationResult` sets urgency_score to max(current, 0.8) if any keyword found
-- [ ] T023 [US1] Create `app/modules/classifier/llm_strategy.py` — `LLMClassifier(ClassifierProtocol)` that calls Claude API with few-shot prompt to classify department (from departments.json taxonomy), sub_category, urgency_score, sentiment. Post-processes with UrgencyBooster. Fallback: keyword-only classification with low confidence
-- [ ] T024 [P] [US1] Create `app/modules/classifier/__main__.py` — Standalone demo with 4 sample inputs including one urgency-keyword test. Runnable via `python -m app.modules.classifier`
-- [ ] T025 [P] [US1] Create `app/modules/classifier/__init__.py` — Factory function `create_classifier(config) -> ClassifierProtocol`
+- [x] T021 [US1] Create `app/modules/classifier/protocol.py` — `ClassifierProtocol` ABC with abstract async method `classify(normalized: NormalizedComplaint) -> ClassificationResult`
+- [x] T022 [US1] Create `app/modules/classifier/keyword_urgency.py` — `UrgencyBooster` class with a hardcoded list of urgency keywords (baccha, hospital, khoon, aag, zakhmi, ambulance, maut, emergency, etc.) in Roman Urdu and English. Method `boost(result: ClassificationResult, original_text: str) -> ClassificationResult` sets urgency_score to max(current, 0.8) if any keyword found
+- [x] T023 [US1] Create `app/modules/classifier/llm_strategy.py` — `LLMClassifier(ClassifierProtocol)` that calls Claude API with few-shot prompt to classify department (from departments.json taxonomy), sub_category, urgency_score, sentiment. Post-processes with UrgencyBooster. Fallback: keyword-only classification with low confidence
+- [x] T024 [P] [US1] Create `app/modules/classifier/__main__.py` — Standalone demo with 4 sample inputs including one urgency-keyword test. Runnable via `python -m app.modules.classifier`
+- [x] T025 [P] [US1] Create `app/modules/classifier/__init__.py` — Factory function `create_classifier(config) -> ClassifierProtocol`
 
 ### Geo-Extractor Module
 
-- [ ] T026 [US1] Create `app/modules/geo_extractor/protocol.py` — `GeoExtractorProtocol` ABC with abstract async method `extract(text: str, location_hint: Optional[str]) -> Optional[LocationResult]`
-- [ ] T027 [US1] Create `app/modules/geo_extractor/gazetteer.py` — `Gazetteer` class that loads `app/data/pakistan_gazetteer.json`, provides `lookup(text: str) -> Optional[GazetteerEntry]` using substring matching against name and all aliases (case-insensitive)
-- [ ] T028 [US1] Create `app/modules/geo_extractor/llm_strategy.py` — `LLMGeoExtractor(GeoExtractorProtocol)` that first tries gazetteer lookup; if no match, calls Claude API to extract and resolve location from text. Returns LocationResult with source=gazetteer or source=llm_fallback. Fallback: return None if both fail
-- [ ] T029 [P] [US1] Create `app/modules/geo_extractor/__main__.py` — Standalone demo with 3 samples: exact match ("G-9"), fuzzy match ("G nain"), no location. Runnable via `python -m app.modules.geo_extractor`
-- [ ] T030 [P] [US1] Create `app/modules/geo_extractor/__init__.py` — Factory function `create_geo_extractor(config) -> GeoExtractorProtocol`
+- [x] T026 [US1] Create `app/modules/geo_extractor/protocol.py` — `GeoExtractorProtocol` ABC with abstract async method `extract(text: str, location_hint: Optional[str]) -> Optional[LocationResult]`
+- [x] T027 [US1] Create `app/modules/geo_extractor/gazetteer.py` — `Gazetteer` class that loads `app/data/pakistan_gazetteer.json`, provides `lookup(text: str) -> Optional[GazetteerEntry]` using substring matching against name and all aliases (case-insensitive)
+- [x] T028 [US1] Create `app/modules/geo_extractor/llm_strategy.py` — `LLMGeoExtractor(GeoExtractorProtocol)` that first tries gazetteer lookup; if no match, calls Claude API to extract and resolve location from text. Returns LocationResult with source=gazetteer or source=llm_fallback. Fallback: return None if both fail
+- [x] T029 [P] [US1] Create `app/modules/geo_extractor/__main__.py` — Standalone demo with 3 samples: exact match ("G-9"), fuzzy match ("G nain"), no location. Runnable via `python -m app.modules.geo_extractor`
+- [x] T030 [P] [US1] Create `app/modules/geo_extractor/__init__.py` — Factory function `create_geo_extractor(config) -> GeoExtractorProtocol`
 
 ### Orchestrator & Route
 
-- [ ] T031 [US1] Create `app/orchestrator/pipeline.py` — `ComplaintPipeline` class that wires normalizer → classifier → geo_extractor in sequence (normalizer + geo_extractor can run in parallel via `asyncio.gather()`). Method `async process(request: ClassifyRequest) -> ClassifyResponse`. Loads response templates from `app/data/response_templates.json`. Sets `cluster=None` (dedup wired in US3). Measures processing_time_ms
-- [ ] T032 [US1] Create `app/api/v1/routes.py` — `POST /api/v1/classify` async endpoint that takes ClassifyRequest body, calls pipeline.process(), returns ClassifyResponse. Structured error handling with request_id logging
-- [ ] T033 [US1] Create `app/api/v1/health.py` — `GET /health` endpoint returning module status, strategy names, LLM provider connectivity, uptime. Import as router in main.py
-- [ ] T034 [US1] Wire pipeline into `app/main.py` lifespan — instantiate all module factories using config, create ComplaintPipeline, store on `app.state`. Include API v1 routers. Verify full end-to-end: start server → POST /classify → get ClassifyResponse
+- [x] T031 [US1] Create `app/orchestrator/pipeline.py` — `ComplaintPipeline` class that wires normalizer → classifier → geo_extractor in sequence (normalizer + geo_extractor can run in parallel via `asyncio.gather()`). Method `async process(request: ClassifyRequest) -> ClassifyResponse`. Loads response templates from `app/data/response_templates.json`. Sets `cluster=None` (dedup wired in US3). Measures processing_time_ms
+- [x] T032 [US1] Create `app/api/v1/routes.py` — `POST /api/v1/classify` async endpoint that takes ClassifyRequest body, calls pipeline.process(), returns ClassifyResponse. Structured error handling with request_id logging
+- [x] T033 [US1] Create `app/api/v1/health.py` — `GET /health` endpoint returning module status, strategy names, LLM provider connectivity, uptime. Import as router in main.py
+- [x] T034 [US1] Wire pipeline into `app/main.py` lifespan — instantiate all module factories using config, create ComplaintPipeline, store on `app.state`. Include API v1 routers. Verify full end-to-end: start server → POST /classify → get ClassifyResponse
 
 **Checkpoint**: User Story 1 is fully functional. `POST /api/v1/classify` accepts multilingual text and returns department, urgency, geo, and Urdu response. The single `/classify` endpoint is the MVP.
 
