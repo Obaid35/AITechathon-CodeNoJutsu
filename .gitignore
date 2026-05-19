@@ -304,3 +304,5 @@ export/
 # Example: !.env.example (to track example env file)
 # Example: !important_data.csv (to track specific data files)
 .agents
+.agent
+AGENTS.md
