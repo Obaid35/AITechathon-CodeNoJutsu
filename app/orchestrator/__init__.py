@@ -1,0 +1,1 @@
+"""NaqsKAR orchestrator — pipeline wiring."""
