@@ -40,12 +40,14 @@ class ComplaintPipeline:
         normalizer: NormalizerProtocol,
         classifier: ClassifierProtocol,
         geo_extractor: Optional[GeoExtractorProtocol],
-        deduplicator=None,  # Added in Phase 5 (US3)
+        deduplicator=None,
+        complaint_store=None,
     ) -> None:
         self.normalizer = normalizer
         self.classifier = classifier
         self.geo_extractor = geo_extractor
         self.deduplicator = deduplicator
+        self.complaint_store = complaint_store
         self._response_templates = self._load_response_templates()
 
     def _load_response_templates(self) -> dict[str, str]:
@@ -123,7 +125,7 @@ class ComplaintPipeline:
         response_template = self._get_response_template(classification.department)
         duration_ms = round((time.perf_counter() - start) * 1000)
 
-        return ClassifyResponse(
+        response = ClassifyResponse(
             request_id=request_id,
             classification=classification,
             location=geo_result,
@@ -132,6 +134,15 @@ class ComplaintPipeline:
             processing_time_ms=duration_ms,
             degradation_warnings=warnings if warnings else None,
         )
+
+        # Store for analytics (Phase 6)
+        if self.complaint_store:
+            try:
+                self.complaint_store.add(response)
+            except Exception as e:
+                logger.warning("complaint_store_failed", error=str(e))
+
+        return response
 
     async def batch_process(
         self, requests: list[ClassifyRequest], request_id: str

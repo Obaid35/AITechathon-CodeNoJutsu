@@ -12,6 +12,7 @@ import httpx
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.core.config import get_settings
 from app.core.errors import NaqsKARException
@@ -20,6 +21,7 @@ from app.modules.classifier import create_classifier
 from app.modules.deduplication import create_deduplicator
 from app.modules.geo_extractor import create_geo_extractor
 from app.modules.normalizer import create_normalizer
+from app.orchestrator.complaint_store import InMemoryComplaintStore
 from app.orchestrator.pipeline import ComplaintPipeline
 
 logger = get_logger("main")
@@ -45,16 +47,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     geo_extractor = create_geo_extractor(settings, http_client)
     deduplicator = create_deduplicator(settings)
 
+    # Complaint store for analytics
+    complaint_store = InMemoryComplaintStore()
+    app.state.complaint_store = complaint_store
+
     # Wire pipeline (Constitution I: end-to-end working system)
     app.state.pipeline = ComplaintPipeline(
         normalizer=normalizer,
         classifier=classifier,
         geo_extractor=geo_extractor,
         deduplicator=deduplicator,
+        complaint_store=complaint_store,
     )
-
-    # Complaint store for analytics (wired in Phase 6 / US4)
-    app.state.complaint_store = None
 
     logger.info(
         "naqskar_ready",
@@ -77,14 +81,10 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# --- CORS (Constitution VI: explicit origins, no wildcard in production) ---
+# --- CORS (allow dashboard access) ---
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:8000",
-    ],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -124,3 +124,9 @@ from app.api.v1.routes import router as v1_router  # noqa: E402
 
 app.include_router(health_router)
 app.include_router(v1_router)
+
+# --- Serve Dashboard as static files ---
+import os
+dashboard_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "dashboard")
+if os.path.isdir(dashboard_path):
+    app.mount("/dashboard", StaticFiles(directory=dashboard_path, html=True), name="dashboard")

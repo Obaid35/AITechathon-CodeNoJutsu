@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="NaqsKAR — AI-Powered Citizen Complaint Heatmap Dashboard for Pakistan">
+    <title>NaqsKAR — Complaint Heatmap Dashboard</title>
+
+    <!-- Leaflet.js -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- Google Font: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Header -->
+    <header id="app-header">
+        <div class="header-brand">
+            <div class="brand-icon">🇵🇰</div>
+            <div>
+                <h1>NaqsKAR</h1>
+                <p class="subtitle">AI-Powered Citizen Complaint Triage & Routing</p>
+            </div>
+        </div>
+        <div class="header-status">
+            <span class="status-dot" id="status-dot"></span>
+            <span id="status-text">Connecting...</span>
+        </div>
+    </header>
+
+    <main>
+        <!-- Stats Bar -->
+        <section id="stats-bar">
+            <div class="stat-card" id="stat-total">
+                <div class="stat-number">0</div>
+                <div class="stat-label">Total Complaints</div>
+            </div>
+            <div class="stat-card stat-critical" id="stat-critical">
+                <div class="stat-number">0</div>
+                <div class="stat-label">Critical</div>
+            </div>
+            <div class="stat-card stat-high" id="stat-high">
+                <div class="stat-number">0</div>
+                <div class="stat-label">High</div>
+            </div>
+            <div class="stat-card" id="stat-clusters">
+                <div class="stat-number">0</div>
+                <div class="stat-label">Active Clusters</div>
+            </div>
+            <div class="stat-card" id="stat-urgency">
+                <div class="stat-number">0.00</div>
+                <div class="stat-label">Avg Urgency</div>
+            </div>
+        </section>
+
+        <!-- Filter Panel + Map -->
+        <div id="content-area">
+            <!-- Filters -->
+            <aside id="filter-panel">
+                <h2>🔍 Filters</h2>
+
+                <div class="filter-group">
+                    <label for="filter-department">Department</label>
+                    <select id="filter-department">
+                        <option value="all">All Departments</option>
+                        <option value="water_supply">💧 Water Supply</option>
+                        <option value="electricity">⚡ Electricity</option>
+                        <option value="roads">🛣️ Roads</option>
+                        <option value="sanitation">🗑️ Sanitation</option>
+                        <option value="police">🚔 Police</option>
+                        <option value="health">🏥 Health</option>
+                        <option value="education">📚 Education</option>
+                        <option value="revenue">💰 Revenue</option>
+                        <option value="gas">🔥 Gas</option>
+                        <option value="telecom">📡 Telecom</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="filter-region">Region</label>
+                    <select id="filter-region">
+                        <option value="all">All Regions</option>
+                        <option value="Islamabad">Islamabad</option>
+                        <option value="Lahore">Lahore</option>
+                        <option value="Karachi">Karachi</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="filter-days">Time Window</label>
+                    <input type="range" id="filter-days" min="1" max="30" value="7" />
+                    <span id="days-label">7 days</span>
+                </div>
+
+                <button id="btn-refresh" onclick="fetchAnalytics()">⟳ Refresh Now</button>
+
+                <!-- Department Breakdown -->
+                <div id="department-breakdown">
+                    <h3>📊 By Department</h3>
+                    <div id="dept-bars"></div>
+                </div>
+
+                <!-- Submit Test Complaint -->
+                <div id="test-panel">
+                    <h3>📝 Test Complaint</h3>
+                    <textarea id="test-text" placeholder="pani nahi araha G-9 mein..." rows="3"></textarea>
+                    <button id="btn-submit" onclick="submitTestComplaint()">Submit & Classify</button>
+                    <div id="test-result"></div>
+                </div>
+            </aside>
+
+            <!-- Map -->
+            <div id="map-container">
+                <div id="map"></div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <p>NaqsKAR v1.0 — Auto-refreshes every 30s • Built for AI Techathon 2026</p>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+</html>

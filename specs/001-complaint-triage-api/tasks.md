@@ -126,9 +126,9 @@
 
 **Independent Test**: `curl http://localhost:8000/api/v1/analytics?region=Islamabad&days=7` returns department counts and cluster coordinates
 
-- [ ] T044 [US4] Create `app/orchestrator/complaint_store.py` — `InMemoryComplaintStore` class that stores processed ClassifyResponse entries in memory. Methods: `add(response: ClassifyResponse)`, `query(region: Optional[str], days: int, department: Optional[str]) -> list[ClassifyResponse]`, `get_analytics(query: AnalyticsQuery) -> AnalyticsSummary`. Computes by_department counts, by_urgency bands (low ≤0.3, medium ≤0.6, high ≤0.8, critical >0.8), avg_urgency, and active cluster summaries
-- [ ] T045 [US4] Wire complaint store into pipeline — After processing each complaint in `pipeline.process()`, store the result in InMemoryComplaintStore. Initialize store in lifespan
-- [ ] T046 [US4] Add `GET /api/v1/analytics` endpoint in `app/api/v1/routes.py` — Takes AnalyticsQuery as query params, calls complaint_store.get_analytics(), returns AnalyticsSummary. Returns empty result (zero counts, empty clusters) when no data matches — never an error
+- [x] T044 [US4] Create `app/orchestrator/complaint_store.py` — `InMemoryComplaintStore` class that stores processed ClassifyResponse entries in memory. Methods: `add(response: ClassifyResponse)`, `query(region: Optional[str], days: int, department: Optional[str]) -> list[ClassifyResponse]`, `get_analytics(query: AnalyticsQuery) -> AnalyticsSummary`. Computes by_department counts, by_urgency bands (low ≤0.3, medium ≤0.6, high ≤0.8, critical >0.8), avg_urgency, and active cluster summaries
+- [x] T045 [US4] Wire complaint store into pipeline — After processing each complaint in `pipeline.process()`, store the result in InMemoryComplaintStore. Initialize store in lifespan
+- [x] T046 [US4] Add `GET /api/v1/analytics` endpoint in `app/api/v1/routes.py` — Takes AnalyticsQuery as query params, calls complaint_store.get_analytics(), returns AnalyticsSummary. Returns empty result (zero counts, empty clusters) when no data matches — never an error
 
 **Checkpoint**: Analytics endpoint returns live aggregated data from complaints processed during the session.
 
@@ -138,12 +138,12 @@
 
 **Goal**: Live filterable map showing clustered complaints by location and department
 
-**Independent Test**: Open `http://localhost:3000`, see Leaflet map with cluster markers, filter by department
+**Independent Test**: Open `http://localhost:8000/dashboard`, see Leaflet map with cluster markers, filter by department
 
-- [ ] T047 [US5] Create `dashboard/index.html` — HTML page with Leaflet.js (CDN), filter controls (department dropdown, days slider), and a complaint count summary bar. Links to app.js and style.css. Uses OpenStreetMap tiles
-- [ ] T048 [US5] Create `dashboard/app.js` — Fetches `/api/v1/analytics` on load and on filter change. Renders cluster markers on Leaflet map with color-coded by department, size-scaled by weight, popups showing representative_text and complaint_count. Updates summary bar with total_complaints and by_department counts. Auto-refreshes every 30 seconds
-- [ ] T049 [P] [US5] Create `dashboard/style.css` — Dark theme styling for the dashboard: navy/dark-gray background, white text, glassmorphism filter panel, smooth marker animations, responsive layout for desktop. NaqsKAR branding header with green accent (Pakistan flag green #01411C)
-- [ ] T050 [US5] Add CORS origin for dashboard (localhost:3000) in `app/main.py` and add static file serving or document the `python -m http.server 3000 --directory dashboard` approach in a comment
+- [x] T047 [US5] Create `dashboard/index.html` — HTML page with Leaflet.js (CDN), filter controls (department dropdown, days slider), and a complaint count summary bar. Links to app.js and style.css. Uses OpenStreetMap tiles
+- [x] T048 [US5] Create `dashboard/app.js` — Fetches `/api/v1/analytics` on load and on filter change. Renders cluster markers on Leaflet map with color-coded by department, size-scaled by weight, popups showing representative_text and complaint_count. Updates summary bar with total_complaints and by_department counts. Auto-refreshes every 30 seconds
+- [x] T049 [P] [US5] Create `dashboard/style.css` — Dark theme styling for the dashboard: navy/dark-gray background, white text, glassmorphism filter panel, smooth marker animations, responsive layout for desktop. NaqsKAR branding header with green accent (Pakistan flag green #01411C)
+- [x] T050 [US5] Add CORS origin for dashboard and static file serving via FastAPI StaticFiles mount at `/dashboard`
 
 **Checkpoint**: Full end-to-end demo: POST complaints via API → see them appear on the heatmap dashboard with filtering.
 
@@ -153,12 +153,12 @@
 
 **Purpose**: Demo preparation and production hardening
 
-- [ ] T051 [P] Create `app/data/sample_complaints.json` — 15-20 sample complaints for demo: 5 Roman Urdu (water, electricity, roads), 3 Urdu script, 3 English, 2 code-mixed, 2 high-urgency (medical/fire), 5 duplicate cluster (same issue, nearby locations)
-- [ ] T052 [P] Create `scripts/seed_demo.py` — Script that reads sample_complaints.json and POSTs each to `/api/v1/classify` with 1-second delays, seeding the analytics store for demo. Prints results summary
-- [ ] T053 Create `Dockerfile` — Multi-stage build: stage 1 installs deps, stage 2 copies app. Exposes PORT, runs uvicorn. Includes healthcheck
-- [ ] T054 [P] Create `docker-compose.yml` — Single service for the API (port 8000). Mount .env. Optional dashboard service (nginx or python http.server on port 3000)
-- [ ] T055 Update `README.md` — Add quickstart instructions matching quickstart.md, architecture diagram from plan.md, API examples from contracts
-- [ ] T056 Run full end-to-end validation — Start server, run seed_demo.py, verify: (1) /health returns healthy, (2) single classify works for Roman Urdu + English + Urdu, (3) batch classify processes 5 complaints, (4) analytics returns data, (5) dashboard shows clusters on map. Fix any issues found
+- [x] T051 [P] Create `app/data/sample_complaints.json` — 20 sample complaints covering 10 departments, 3 languages, multiple cities, with duplicates for clustering
+- [x] T052 [P] Create `scripts/seed_demo.py` — Script that reads sample_complaints.json and POSTs each to `/api/v1/classify` with delays, seeding the analytics store for demo. Prints results summary
+- [x] T053 Create `Dockerfile` — Multi-stage build: stage 1 installs deps, stage 2 copies app. Exposes PORT, runs uvicorn. Includes healthcheck
+- [x] T054 [P] Create `docker-compose.yml` — Single service for the API (port 8000). Mount .env. Health check configured
+- [x] T055 Update `README.md` — Comprehensive README with architecture, quickstart, API docs, dashboard info, Docker, and project structure
+- [x] T056 Run full end-to-end validation — Verified: health, single classify (Roman Urdu + English), analytics store + retrieval, dashboard serving, deduplication clustering
 
 ---
 

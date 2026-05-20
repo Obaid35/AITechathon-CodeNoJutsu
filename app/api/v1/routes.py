@@ -5,10 +5,11 @@ Constitution IV: Pydantic models for all request/response bodies.
 Constitution VI: Structured errors with request_id.
 """
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Query, Request
 
 from app.core.errors import NaqsKARException
 from app.core.logging import get_logger
+from app.schemas.analytics import AnalyticsQuery, AnalyticsSummary
 from app.schemas.classification import BatchClassifyResponse, ClassifyResponse
 from app.schemas.complaint import BatchClassifyRequest, ClassifyRequest
 
@@ -88,3 +89,30 @@ async def batch_classify_complaints(
     )
 
     return result
+
+
+@router.get("/analytics", response_model=AnalyticsSummary)
+async def get_analytics(
+    request: Request,
+    region: str = Query("all", description="City/region filter"),
+    days: int = Query(7, ge=1, le=90, description="Time window in days"),
+    department: str = Query("all", description="Department filter"),
+) -> AnalyticsSummary:
+    """Get aggregated analytics from processed complaints.
+
+    Returns department counts, urgency bands, and active cluster
+    summaries with coordinates for heatmap rendering.
+    """
+    store = request.app.state.complaint_store
+    if store is None:
+        return AnalyticsSummary(
+            total_complaints=0,
+            by_department={},
+            by_urgency={"low": 0, "medium": 0, "high": 0, "critical": 0},
+            avg_urgency=0.0,
+            active_clusters=[],
+        )
+
+    query = AnalyticsQuery(region=region, days=days, department=department)
+    return store.get_analytics(query)
+
