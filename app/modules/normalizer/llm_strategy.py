@@ -1,4 +1,4 @@
-"""LLM-based normalizer strategy using Claude API.
+"""LLM-based normalizer strategy using OpenRouter API (OpenAI-compatible).
 
 Constitution V: Implements NormalizerProtocol — swappable via config.
 Constitution III: Uses httpx.AsyncClient for async LLM calls.
@@ -48,41 +48,57 @@ Output: {"normalized_text": "Child is sick, cannot find space in Jinnah Hospital
 
 Return ONLY the JSON object, no markdown formatting or extra text."""
 
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+
 
 class LLMNormalizer(NormalizerProtocol):
-    """Few-shot LLM normalizer using Claude API."""
+    """Few-shot LLM normalizer using OpenRouter API (GLM-4.5-Air)."""
 
-    def __init__(self, http_client: httpx.AsyncClient, api_key: str, model: str = "claude-sonnet-4-20250514") -> None:
+    def __init__(
+        self,
+        http_client: httpx.AsyncClient,
+        api_key: str,
+        model: str = "z-ai/glm-4.5-air:free",
+    ) -> None:
         self.http_client = http_client
         self.api_key = api_key
         self.model = model
 
     async def process(self, text: str, language_hint: str | None = None) -> NormalizedComplaint:
-        """Normalize complaint text via Claude API few-shot prompting."""
+        """Normalize complaint text via OpenRouter API few-shot prompting."""
         user_message = text
         if language_hint:
             user_message = f"[Language hint: {language_hint}] {text}"
 
         try:
             response = await self.http_client.post(
-                "https://api.anthropic.com/v1/messages",
+                OPENROUTER_URL,
                 headers={
-                    "x-api-key": self.api_key,
-                    "anthropic-version": "2023-06-01",
-                    "content-type": "application/json",
+                    "Authorization": f"Bearer {self.api_key}",
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": "https://naqskar.app",
+                    "X-Title": "NaqsKAR",
                 },
                 json={
                     "model": self.model,
                     "max_tokens": 1024,
-                    "system": SYSTEM_PROMPT,
-                    "messages": [{"role": "user", "content": user_message}],
+                    "messages": [
+                        {"role": "system", "content": SYSTEM_PROMPT},
+                        {"role": "user", "content": user_message},
+                    ],
                 },
             )
             response.raise_for_status()
             data = response.json()
-            content = data["content"][0]["text"]
+            content = data["choices"][0]["message"]["content"]
 
-            # Parse JSON from LLM response
+            # Strip markdown code fences if present
+            if content.startswith("```"):
+                content = content.split("\n", 1)[1] if "\n" in content else content[3:]
+                if content.endswith("```"):
+                    content = content[:-3]
+                content = content.strip()
+
             parsed = json.loads(content)
 
             return NormalizedComplaint(

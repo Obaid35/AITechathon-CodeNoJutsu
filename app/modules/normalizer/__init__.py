@@ -15,7 +15,8 @@ def create_normalizer(settings: Settings, http_client) -> NormalizerProtocol:
     if settings.app_normalizer_strategy == MLStrategy.LLM:
         return LLMNormalizer(
             http_client=http_client,
-            api_key=settings.anthropic_api_key or "",
+            api_key=settings.openrouter_api_key or "",
+            model=settings.openrouter_model,
         )
     else:
         # Fallback — LLM with empty key triggers graceful degradation

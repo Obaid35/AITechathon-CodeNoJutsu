@@ -36,6 +36,8 @@ Handle misspellings: "G nain" = "G-9", "f7" = "F-7", "bluearea" = "Blue Area".
 
 Return ONLY the JSON object."""
 
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+
 
 class LLMGeoExtractor(GeoExtractorProtocol):
     """Two-tier geo-extraction: gazetteer lookup first, LLM fallback."""
@@ -45,7 +47,7 @@ class LLMGeoExtractor(GeoExtractorProtocol):
         http_client: httpx.AsyncClient,
         api_key: str,
         gazetteer: Optional[Gazetteer] = None,
-        model: str = "claude-sonnet-4-20250514",
+        model: str = "z-ai/glm-4.5-air:free",
     ) -> None:
         self.http_client = http_client
         self.api_key = api_key
@@ -93,22 +95,33 @@ class LLMGeoExtractor(GeoExtractorProtocol):
 
         try:
             response = await self.http_client.post(
-                "https://api.anthropic.com/v1/messages",
+                OPENROUTER_URL,
                 headers={
-                    "x-api-key": self.api_key,
-                    "anthropic-version": "2023-06-01",
-                    "content-type": "application/json",
+                    "Authorization": f"Bearer {self.api_key}",
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": "https://naqskar.app",
+                    "X-Title": "NaqsKAR",
                 },
                 json={
                     "model": self.model,
                     "max_tokens": 512,
-                    "system": GEO_SYSTEM_PROMPT,
-                    "messages": [{"role": "user", "content": search_text}],
+                    "messages": [
+                        {"role": "system", "content": GEO_SYSTEM_PROMPT},
+                        {"role": "user", "content": search_text},
+                    ],
                 },
             )
             response.raise_for_status()
             data = response.json()
-            content = data["content"][0]["text"]
+            content = data["choices"][0]["message"]["content"]
+
+            # Strip markdown code fences if present
+            if content.startswith("```"):
+                content = content.split("\n", 1)[1] if "\n" in content else content[3:]
+                if content.endswith("```"):
+                    content = content[:-3]
+                content = content.strip()
+
             parsed = json.loads(content)
 
             if not parsed.get("raw_location"):

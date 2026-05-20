@@ -15,7 +15,8 @@ def create_classifier(settings: Settings, http_client) -> ClassifierProtocol:
     if settings.app_classifier_strategy == MLStrategy.LLM:
         return LLMClassifier(
             http_client=http_client,
-            api_key=settings.anthropic_api_key or "",
+            api_key=settings.openrouter_api_key or "",
+            model=settings.openrouter_model,
         )
     else:
         # Keyword-only mode — LLM with empty key triggers fallback

@@ -7,7 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class LLMProvider(str, Enum):
-    CLAUDE = "claude"
+    OPENROUTER = "openrouter"
     OLLAMA = "ollama"
 
 
@@ -44,8 +44,9 @@ class Settings(BaseSettings):
     debug: bool = False
 
     # --- LLM Provider ---
-    anthropic_api_key: Optional[str] = None
-    app_llm_provider: LLMProvider = LLMProvider.CLAUDE
+    openrouter_api_key: Optional[str] = None
+    openrouter_model: str = "z-ai/glm-4.5-air:free"
+    app_llm_provider: LLMProvider = LLMProvider.OPENROUTER
 
     # --- Module Strategies ---
     app_normalizer_strategy: MLStrategy = MLStrategy.LLM

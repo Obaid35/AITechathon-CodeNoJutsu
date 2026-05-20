@@ -1,4 +1,4 @@
-"""LLM-based classifier strategy using Claude API.
+"""LLM-based classifier strategy using OpenRouter API (OpenAI-compatible).
 
 Constitution V: Implements ClassifierProtocol — swappable via config.
 """
@@ -64,11 +64,18 @@ KEYWORD_DEPARTMENT_MAP: dict[str, str] = {
     "mobile": "telecom", "internet": "telecom", "signal": "telecom", "network": "telecom",
 }
 
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+
 
 class LLMClassifier(ClassifierProtocol):
-    """Few-shot LLM classifier using Claude API."""
+    """Few-shot LLM classifier using OpenRouter API."""
 
-    def __init__(self, http_client: httpx.AsyncClient, api_key: str, model: str = "claude-sonnet-4-20250514") -> None:
+    def __init__(
+        self,
+        http_client: httpx.AsyncClient,
+        api_key: str,
+        model: str = "z-ai/glm-4.5-air:free",
+    ) -> None:
         self.http_client = http_client
         self.api_key = api_key
         self.model = model
@@ -83,22 +90,32 @@ class LLMClassifier(ClassifierProtocol):
             })
 
             response = await self.http_client.post(
-                "https://api.anthropic.com/v1/messages",
+                OPENROUTER_URL,
                 headers={
-                    "x-api-key": self.api_key,
-                    "anthropic-version": "2023-06-01",
-                    "content-type": "application/json",
+                    "Authorization": f"Bearer {self.api_key}",
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": "https://naqskar.app",
+                    "X-Title": "NaqsKAR",
                 },
                 json={
                     "model": self.model,
                     "max_tokens": 512,
-                    "system": SYSTEM_PROMPT,
-                    "messages": [{"role": "user", "content": user_msg}],
+                    "messages": [
+                        {"role": "system", "content": SYSTEM_PROMPT},
+                        {"role": "user", "content": user_msg},
+                    ],
                 },
             )
             response.raise_for_status()
             data = response.json()
-            content = data["content"][0]["text"]
+            content = data["choices"][0]["message"]["content"]
+
+            # Strip markdown code fences if present
+            if content.startswith("```"):
+                content = content.split("\n", 1)[1] if "\n" in content else content[3:]
+                if content.endswith("```"):
+                    content = content[:-3]
+                content = content.strip()
 
             parsed = json.loads(content)
 

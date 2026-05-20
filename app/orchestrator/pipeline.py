@@ -15,7 +15,12 @@ from app.core.logging import get_logger
 from app.modules.classifier.protocol import ClassifierProtocol
 from app.modules.geo_extractor.protocol import GeoExtractorProtocol
 from app.modules.normalizer.protocol import NormalizerProtocol
-from app.schemas.classification import ClassifyResponse, ClassificationResult
+from app.schemas.classification import (
+    BatchClassifyResponse,
+    BatchItemResult,
+    ClassificationResult,
+    ClassifyResponse,
+)
 from app.schemas.cluster import ClusterInfo
 from app.schemas.complaint import ClassifyRequest
 from app.schemas.location import LocationResult
@@ -125,7 +130,65 @@ class ComplaintPipeline:
             cluster=cluster,
             suggested_response_urdu=response_template,
             processing_time_ms=duration_ms,
-            _warnings=warnings if warnings else None,
+            degradation_warnings=warnings if warnings else None,
+        )
+
+    async def batch_process(
+        self, requests: list[ClassifyRequest], request_id: str
+    ) -> BatchClassifyResponse:
+        """Process a batch of complaints with partial failure support.
+
+        Constitution III: Uses asyncio.gather with return_exceptions=True
+        so individual failures don't kill the entire batch.
+        """
+        start = time.perf_counter()
+
+        # Create per-item tasks
+        async def _process_one(idx: int, req: ClassifyRequest) -> BatchItemResult:
+            try:
+                item_id = f"{request_id}_item_{idx}"
+                result = await self.process(req, request_id=item_id)
+                return BatchItemResult(
+                    index=idx,
+                    status="success",
+                    classification=result.classification,
+                    location=result.location,
+                    cluster=result.cluster,
+                    suggested_response_urdu=result.suggested_response_urdu,
+                )
+            except Exception as e:
+                logger.warning("batch_item_failed", index=idx, error=str(e))
+                return BatchItemResult(
+                    index=idx,
+                    status="error",
+                    error={"error_code": "ITEM_PROCESSING_ERROR", "message": str(e)},
+                )
+
+        # Execute all items concurrently
+        results = await asyncio.gather(
+            *[_process_one(i, req) for i, req in enumerate(requests)],
+            return_exceptions=False,
+        )
+
+        successful = sum(1 for r in results if r.status == "success")
+        failed = sum(1 for r in results if r.status == "error")
+        duration_ms = round((time.perf_counter() - start) * 1000)
+
+        logger.info(
+            "batch_complete",
+            total=len(requests),
+            successful=successful,
+            failed=failed,
+            duration_ms=duration_ms,
+        )
+
+        return BatchClassifyResponse(
+            request_id=request_id,
+            total=len(requests),
+            successful=successful,
+            failed=failed,
+            results=list(results),
+            processing_time_ms=duration_ms,
         )
 
     def get_module_status(self) -> dict[str, dict]:

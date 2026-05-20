@@ -33,7 +33,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("naqskar_starting", host=settings.host, port=settings.port)
 
     # Shared HTTP client for LLM API calls
-    http_client = httpx.AsyncClient(timeout=30.0)
+    http_client = httpx.AsyncClient(timeout=120.0)
     app.state.http_client = http_client
     app.state.settings = settings
     app.state.start_time = time.time()

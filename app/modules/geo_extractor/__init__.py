@@ -20,8 +20,9 @@ def create_geo_extractor(settings: Settings, http_client) -> Optional[GeoExtract
     if settings.app_geo_strategy == GeoStrategy.LLM_GAZETTEER:
         return LLMGeoExtractor(
             http_client=http_client,
-            api_key=settings.anthropic_api_key or "",
+            api_key=settings.openrouter_api_key or "",
             gazetteer=gazetteer,
+            model=settings.openrouter_model,
         )
     elif settings.app_geo_strategy == GeoStrategy.GAZETTEER_ONLY:
         return LLMGeoExtractor(

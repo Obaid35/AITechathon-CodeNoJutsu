@@ -95,7 +95,7 @@ class ClassifyResponse(BaseModel):
     processing_time_ms: int = Field(
         ..., description="End-to-end processing time in milliseconds"
     )
-    _warnings: Optional[list[str]] = Field(
+    degradation_warnings: Optional[list[str]] = Field(
         default=None, description="Degradation warnings"
     )
 
