@@ -95,9 +95,9 @@
 
 **Independent Test**: `curl -X POST http://localhost:8000/api/v1/batch-classify` with 5 complaints returns 5 results
 
-- [ ] T035 [US2] Create `BatchClassifyResponse` model in `app/schemas/classification.py` — Add `BatchItemResult` (index: int, status: success|error, classification: Optional, location: Optional, cluster: Optional, suggested_response_urdu: Optional, error: Optional[ErrorResponse]) and `BatchClassifyResponse` (schema_version, request_id, total, successful, failed, results: list[BatchItemResult], processing_time_ms)
-- [ ] T036 [US2] Add `async batch_process(requests: list[ClassifyRequest]) -> BatchClassifyResponse` method to `app/orchestrator/pipeline.py` — Processes each complaint via `asyncio.gather()` with `return_exceptions=True`. Catches per-item errors and wraps them in BatchItemResult with status=error. Never fails the entire batch
-- [ ] T037 [US2] Add `POST /api/v1/batch-classify` endpoint in `app/api/v1/routes.py` — Takes BatchClassifyRequest, calls pipeline.batch_process(), returns BatchClassifyResponse. Validates batch size (1-100) at Pydantic level
+- [x] T035 [US2] Create `BatchClassifyResponse` model in `app/schemas/classification.py` — Add `BatchItemResult` (index: int, status: success|error, classification: Optional, location: Optional, cluster: Optional, suggested_response_urdu: Optional, error: Optional[ErrorResponse]) and `BatchClassifyResponse` (schema_version, request_id, total, successful, failed, results: list[BatchItemResult], processing_time_ms)
+- [x] T036 [US2] Add `async batch_process(requests: list[ClassifyRequest]) -> BatchClassifyResponse` method to `app/orchestrator/pipeline.py` — Processes each complaint via `asyncio.gather()` with `return_exceptions=True`. Catches per-item errors and wraps them in BatchItemResult with status=error. Never fails the entire batch
+- [x] T037 [US2] Add `POST /api/v1/batch-classify` endpoint in `app/api/v1/routes.py` — Takes BatchClassifyRequest, calls pipeline.batch_process(), returns BatchClassifyResponse. Validates batch size (1-100) at Pydantic level
 
 **Checkpoint**: User Stories 1 AND 2 both work independently. Batch endpoint processes mixed-language complaints with per-item error handling.
 
@@ -109,12 +109,12 @@
 
 **Independent Test**: POST 5 similar water complaints for G-9 → all get the same `cluster_id` with weight = count × avg_urgency
 
-- [ ] T038 [US3] Create `app/modules/deduplication/protocol.py` — `DeduplicatorProtocol` ABC with abstract async method `deduplicate(text: str, classification: ClassificationResult, location: Optional[LocationResult]) -> Optional[ClusterInfo]`
-- [ ] T039 [US3] Create `app/modules/deduplication/store.py` — `InMemoryClusterStore` class with rolling-window buffer. Stores: embedding vector, classification, location, timestamp per complaint. Methods: `add(entry)`, `find_cluster(embedding, location, config) -> Optional[ClusterInfo]`, `prune_expired()`. Clusters by cosine similarity ≤ 0.3 AND haversine distance ≤ 500m AND within 7 days
-- [ ] T040 [US3] Create `app/modules/deduplication/embedding_strategy.py` — `EmbeddingDeduplicator(DeduplicatorProtocol)` that loads `paraphrase-multilingual-MiniLM-L12-v2` via sentence-transformers (in lifespan), embeds text via `asyncio.to_thread()`, queries InMemoryClusterStore for matching cluster, creates new cluster if none found. Returns ClusterInfo
-- [ ] T041 [P] [US3] Create `app/modules/deduplication/__main__.py` — Standalone demo: creates 5 similar complaints + 2 different ones, shows clustering results. Runnable via `python -m app.modules.deduplication`
-- [ ] T042 [P] [US3] Create `app/modules/deduplication/__init__.py` — Factory function `create_deduplicator(config) -> Optional[DeduplicatorProtocol]` returning None if strategy is `none`
-- [ ] T043 [US3] Wire deduplication into `app/orchestrator/pipeline.py` — After classification + geo extraction, call deduplicator.deduplicate() if deduplicator is not None. Set cluster field on ClassifyResponse. If dedup fails, set cluster=None and add warning to _warnings list
+- [x] T038 [US3] Create `app/modules/deduplication/protocol.py` — `DeduplicatorProtocol` ABC with abstract async method `deduplicate(text: str, classification: ClassificationResult, location: Optional[LocationResult]) -> Optional[ClusterInfo]`
+- [x] T039 [US3] Create `app/modules/deduplication/store.py` — `InMemoryClusterStore` class with rolling-window buffer. Stores: embedding vector, classification, location, timestamp per complaint. Methods: `add(entry)`, `find_cluster(embedding, location, config) -> Optional[ClusterInfo]`, `prune_expired()`. Clusters by cosine similarity ≤ 0.3 AND haversine distance ≤ 500m AND within 7 days
+- [x] T040 [US3] Create `app/modules/deduplication/embedding_strategy.py` — `EmbeddingDeduplicator(DeduplicatorProtocol)` that loads `paraphrase-multilingual-MiniLM-L12-v2` via sentence-transformers (in lifespan), embeds text via `asyncio.to_thread()`, queries InMemoryClusterStore for matching cluster, creates new cluster if none found. Returns ClusterInfo
+- [x] T041 [P] [US3] Create `app/modules/deduplication/__main__.py` — Standalone demo: creates 5 similar complaints + 2 different ones, shows clustering results. Runnable via `python -m app.modules.deduplication`
+- [x] T042 [P] [US3] Create `app/modules/deduplication/__init__.py` — Factory function `create_deduplicator(config) -> Optional[DeduplicatorProtocol]` returning None if strategy is `none`
+- [x] T043 [US3] Wire deduplication into `app/orchestrator/pipeline.py` — After classification + geo extraction, call deduplicator.deduplicate() if deduplicator is not None. Set cluster field on ClassifyResponse. If dedup fails, set cluster=None and add warning to _warnings list
 
 **Checkpoint**: All three backend user stories work. Similar complaints cluster together. Dedup gracefully degrades if embedding model fails.
 

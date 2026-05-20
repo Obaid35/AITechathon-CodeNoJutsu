@@ -17,6 +17,7 @@ from app.core.config import get_settings
 from app.core.errors import NaqsKARException
 from app.core.logging import generate_request_id, get_logger, setup_logging
 from app.modules.classifier import create_classifier
+from app.modules.deduplication import create_deduplicator
 from app.modules.geo_extractor import create_geo_extractor
 from app.modules.normalizer import create_normalizer
 from app.orchestrator.pipeline import ComplaintPipeline
@@ -42,13 +43,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     normalizer = create_normalizer(settings, http_client)
     classifier = create_classifier(settings, http_client)
     geo_extractor = create_geo_extractor(settings, http_client)
+    deduplicator = create_deduplicator(settings)
 
     # Wire pipeline (Constitution I: end-to-end working system)
     app.state.pipeline = ComplaintPipeline(
         normalizer=normalizer,
         classifier=classifier,
         geo_extractor=geo_extractor,
-        deduplicator=None,  # Wired in Phase 5 (US3)
+        deduplicator=deduplicator,
     )
 
     # Complaint store for analytics (wired in Phase 6 / US4)
@@ -59,6 +61,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         normalizer=type(normalizer).__name__,
         classifier=type(classifier).__name__,
         geo=type(geo_extractor).__name__ if geo_extractor else "disabled",
+        dedup=type(deduplicator).__name__ if deduplicator else "disabled",
     )
     yield
 

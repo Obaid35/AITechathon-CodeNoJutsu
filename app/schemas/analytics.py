@@ -20,9 +20,10 @@ class ClusterSummary(BaseModel):
     cluster_id: str
     department: str
     complaint_count: int
+    avg_urgency: float = 0.0
     weight: float
-    latitude: float
-    longitude: float
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
     representative_text: str
 
 
@@ -54,12 +55,9 @@ class AnalyticsSummary(BaseModel):
     )
 
     schema_version: str = "1.0"
-    request_id: str
-    region: str
-    period_days: int
     total_complaints: int
     by_department: dict[str, int]
     by_urgency: dict[str, int]
     avg_urgency: float
-    clusters: list[ClusterSummary]
+    active_clusters: list[ClusterSummary] = []
     generated_at: Optional[datetime] = None

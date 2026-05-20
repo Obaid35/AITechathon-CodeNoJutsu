@@ -9,8 +9,8 @@ from fastapi import APIRouter, Request
 
 from app.core.errors import NaqsKARException
 from app.core.logging import get_logger
-from app.schemas.classification import ClassifyResponse
-from app.schemas.complaint import ClassifyRequest
+from app.schemas.classification import BatchClassifyResponse, ClassifyResponse
+from app.schemas.complaint import BatchClassifyRequest, ClassifyRequest
 
 logger = get_logger("api.v1")
 
@@ -45,6 +45,45 @@ async def classify_complaint(
         "classify_complete",
         request_id=request_id,
         department=result.classification.department,
+        duration_ms=result.processing_time_ms,
+    )
+
+    return result
+
+
+@router.post("/batch-classify", response_model=BatchClassifyResponse)
+async def batch_classify_complaints(
+    request: Request,
+    body: BatchClassifyRequest,
+) -> BatchClassifyResponse:
+    """Classify a batch of citizen complaints (max 100).
+
+    Each complaint is processed independently. Individual failures
+    do not affect other items in the batch.
+    """
+    pipeline = request.app.state.pipeline
+    if pipeline is None:
+        raise NaqsKARException(
+            error_code="PIPELINE_NOT_READY",
+            message="Classification pipeline is not initialized yet",
+            status_code=503,
+        )
+
+    request_id = getattr(request.state, "request_id", "unknown")
+    logger.info(
+        "batch_classify_start",
+        request_id=request_id,
+        batch_size=len(body.complaints),
+    )
+
+    result = await pipeline.batch_process(body.complaints, request_id=request_id)
+
+    logger.info(
+        "batch_classify_complete",
+        request_id=request_id,
+        total=result.total,
+        successful=result.successful,
+        failed=result.failed,
         duration_ms=result.processing_time_ms,
     )
 
