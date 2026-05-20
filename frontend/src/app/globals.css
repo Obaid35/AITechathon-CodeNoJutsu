@@ -1,0 +1,160 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #fafaf9; /* stone-50 */
+  --surface: #ffffff;
+  --surface-hover: #f5f5f4; /* stone-100 */
+  --border: rgba(0, 0, 0, 0.06);
+  --text-main: #1c1917; /* stone-900 */
+  --text-muted: #78716c; /* stone-500 */
+  
+  --accent: #2563eb; /* blue-600 */
+  --accent-light: #eff6ff; /* blue-50 */
+  
+  --radius-xl: 24px;
+  --radius-lg: 16px;
+  --radius-md: 12px;
+  
+  --shadow-soft: 0 4px 20px rgba(0, 0, 0, 0.03);
+  --shadow-float: 0 20px 40px rgba(0, 0, 0, 0.08);
+}
+
+* {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  letter-spacing: -0.01em;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text-main);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+/* ─── Scrollbar ───────────────────────── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d6d3d1; border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: #a8a29e; }
+
+/* ─── Bento Box Panels ────────────────── */
+.bento-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-soft);
+  padding: 28px;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.bento-panel:hover {
+  box-shadow: var(--shadow-float);
+  transform: translateY(-2px);
+}
+
+.bento-sm {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+}
+
+/* ─── AI Input Field ──────────────────── */
+.ai-input-container {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 32px;
+  box-shadow: var(--shadow-float);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+  position: relative;
+}
+
+.ai-input-container:focus-within {
+  border-color: rgba(37, 99, 235, 0.3);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1), var(--shadow-float);
+  transform: translateY(-4px);
+}
+
+.ai-textarea {
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  resize: none;
+  padding: 32px;
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--text-main);
+}
+.ai-textarea::placeholder {
+  color: #a8a29e;
+  font-weight: 400;
+}
+
+/* ─── Buttons ─────────────────────────── */
+.btn-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-main);
+  transition: all 0.2s;
+  cursor: pointer;
+}
+.btn-icon:hover {
+  background: var(--surface-hover);
+  transform: scale(1.05);
+}
+
+.btn-ai {
+  background: #18181b; /* zinc-900 */
+  color: white;
+  border-radius: 99px;
+  padding: 12px 28px;
+  font-weight: 600;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s;
+}
+.btn-ai:hover:not(:disabled) {
+  background: #000;
+  transform: scale(1.02);
+}
+.btn-ai:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ─── Tags & Pills ────────────────────── */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 99px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* ─── Animations ──────────────────────── */
+@keyframes slideUpFade {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-enter {
+  animation: slideUpFade 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ─── Typography overrides ──────────────── */
+h1, h2, h3, h4 {
+  letter-spacing: -0.03em;
+}
