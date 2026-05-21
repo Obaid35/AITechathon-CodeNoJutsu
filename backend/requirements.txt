@@ -10,3 +10,9 @@ rapidfuzz==3.9.0
 numpy==1.26.4
 supabase==2.9.0
 python-multipart==0.0.9
+# Fine-tuning & Hybrid Pipeline
+torch>=2.0.0
+transformers>=4.36.0
+datasets>=2.16.0
+keybert>=0.8.0
+accelerate>=0.25.0
