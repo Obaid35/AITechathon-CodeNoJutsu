@@ -24,5 +24,8 @@ class Settings:
     # Classifier confidence threshold
     MIN_CONFIDENCE: float = 0.7
 
+    # Startup behavior
+    AUTO_SEED_DEMO_DATA: bool = os.getenv("AUTO_SEED_DEMO_DATA", "false").lower() == "true"
+
 
 settings = Settings()

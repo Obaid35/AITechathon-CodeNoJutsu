@@ -3,10 +3,10 @@
 import { useState } from "react";
 
 const SAMPLES = [
-  { tag: "Water", text: "Line 5 me pichle 4 din se pani nahi aa raha, bohot masla hai" },
-  { tag: "Power", text: "There has been a power outage in block A for 12 hours" },
-  { tag: "Roads", text: "Main road pe bohot bada khadda hai jiski wajah se accident ho sakta hai" },
-  { tag: "Waste", text: "Kachra uthane wala pichle hafte se nahi aya sector 11 me" },
+  { tag: "Water", text: "Lahore mein Line 5 me pichle 4 din se pani nahi aa raha, bohot masla hai" },
+  { tag: "Power", text: "There has been a power outage in G-9 Islamabad for 12 hours" },
+  { tag: "Roads", text: "Rawalpindi main road pe bohot bada khadda hai jiski wajah se accident ho sakta hai" },
+  { tag: "Waste", text: "Kachra uthane wala pichle hafte se G-11 Islamabad me nahi aya" },
 ];
 
 export default function SubmitPanel({ onSubmit, isProcessing, compact = false }: { onSubmit: (t: string, s: string) => void, isProcessing: boolean, compact?: boolean }) {

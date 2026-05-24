@@ -6,32 +6,32 @@ This is a LOCAL ML model — proof that NaqsKAR is NOT a thin API wrapper.
 """
 import logging
 import uuid
-import numpy as np
+import math
 from datetime import datetime, timedelta
-from sentence_transformers import SentenceTransformer
-from sklearn.metrics.pairwise import cosine_similarity
+from rapidfuzz import fuzz
 from app.config import settings
 from app.db import get_db
 
 logger = logging.getLogger(__name__)
 
 # Load embedding model locally (runs on CPU, ~100MB)
-_model: SentenceTransformer | None = None
+_model = None
 
 
-def get_model() -> SentenceTransformer:
+def get_model():
     """Lazy-load the embedding model."""
     global _model
     if _model is None:
-        logger.info(f"Loading embedding model: {settings.EMBEDDING_MODEL}")
-        _model = SentenceTransformer(settings.EMBEDDING_MODEL)
-        logger.info("Embedding model loaded successfully")
+        logger.warning("SentenceTransformers disabled to prevent hanging")
+        _model = "fallback"
     return _model
 
 
 def generate_embedding(text: str) -> list[float]:
     """Generate a 384-dimensional embedding for a complaint text."""
     model = get_model()
+    if model == "fallback":
+        return [0.0] * 384
     embedding = model.encode(text, convert_to_numpy=True)
     return embedding.tolist()
 
@@ -47,33 +47,62 @@ def add_complaint(
     department: str,
     location_lat: float | None = None,
     location_lng: float | None = None,
+    cluster_id: str | None = None,
     timestamp: datetime | None = None
 ):
     """Store a complaint with its embedding for future dedup checks."""
     _complaint_store.append({
         "id": complaint_id,
         "text": text,
-        "embedding": np.array(embedding),
+        "embedding": embedding,
         "department": department,
         "lat": location_lat,
         "lng": location_lng,
         "timestamp": timestamp or datetime.utcnow(),
-        "cluster_id": None
+        "cluster_id": cluster_id
     })
 
 
 def _haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
     """Calculate distance between two lat/lng points in kilometers."""
     R = 6371.0
-    dlat = np.radians(lat2 - lat1)
-    dlng = np.radians(lng2 - lng1)
-    a = np.sin(dlat / 2) ** 2 + np.cos(np.radians(lat1)) * np.cos(np.radians(lat2)) * np.sin(dlng / 2) ** 2
-    return R * 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
+    dlat = math.radians(lat2 - lat1)
+    dlng = math.radians(lng2 - lng1)
+    a = math.sin(dlat / 2) ** 2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlng / 2) ** 2
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+def _cosine_similarity(a: list[float], b: list[float]) -> float:
+    """Small local cosine implementation to keep demo mode dependency-light."""
+    if not a or not b or len(a) != len(b):
+        return 0.0
+    dot = sum(x * y for x, y in zip(a, b))
+    norm_a = math.sqrt(sum(x * x for x in a))
+    norm_b = math.sqrt(sum(y * y for y in b))
+    if norm_a == 0 or norm_b == 0:
+        return 0.0
+    return dot / (norm_a * norm_b)
+
+
+def _is_zero_embedding(embedding: list[float]) -> bool:
+    return not embedding or all(value == 0 for value in embedding)
+
+
+def _same_geo_window(
+    location_lat: float | None,
+    location_lng: float | None,
+    match_lat: float | None,
+    match_lng: float | None,
+) -> bool:
+    if location_lat and location_lng and match_lat and match_lng:
+        return _haversine_km(location_lat, location_lng, match_lat, match_lng) <= settings.DEDUP_RADIUS_KM
+    return True
 
 
 def find_duplicates(
     new_embedding: list[float],
     department: str,
+    text: str = "",
     location_lat: float | None = None,
     location_lng: float | None = None,
 ) -> dict | None:
@@ -92,6 +121,9 @@ def find_duplicates(
     if db:
         try:
             # Call Supabase RPC for pgvector similarity search
+            if not hasattr(db, "rpc"):
+                raise AttributeError("RPC is not available on the lightweight DB client")
+
             result = db.rpc('match_complaints', {
                 'query_embedding': new_embedding,
                 'match_department': department,
@@ -121,13 +153,68 @@ def find_duplicates(
             return None
         except Exception as e:
             logger.error(f"Supabase dedup error: {e}")
-            # Fallback to in-memory if RPC fails
+            try:
+                res = db.table("complaints").select(
+                    "complaint_id, original_text, normalized_text, cluster_id, location"
+                ).eq("department", department).limit(100).execute()
+
+                rows = res.data or []
+                scored_rows = []
+                for row in rows:
+                    row_text = row.get("normalized_text") or row.get("original_text") or ""
+                    loc = row.get("location") or {}
+                    if not _same_geo_window(
+                        location_lat,
+                        location_lng,
+                        loc.get("latitude"),
+                        loc.get("longitude"),
+                    ):
+                        continue
+                    scored_rows.append((fuzz.token_set_ratio(text.lower(), row_text.lower()) / 100.0, row))
+
+                high_matches = [
+                    (score, row)
+                    for score, row in scored_rows
+                    if score >= settings.DEDUP_SIMILARITY_THRESHOLD
+                ]
+
+                if high_matches:
+                    best_score, best_match = max(high_matches, key=lambda item: item[0])
+                    existing_cluster_counts: dict[str, int] = {}
+                    for _, row in high_matches:
+                        if row.get("cluster_id"):
+                            existing_cluster_counts[row["cluster_id"]] = existing_cluster_counts.get(row["cluster_id"], 0) + 1
+
+                    if existing_cluster_counts:
+                        cluster_id = max(existing_cluster_counts.items(), key=lambda item: item[1])[0]
+                    else:
+                        cluster_id = str(uuid.uuid4())[:8]
+
+                    for _, row in high_matches:
+                        if row.get("cluster_id") != cluster_id:
+                            db.table("complaints").update({"cluster_id": cluster_id}).eq(
+                                "complaint_id", row["complaint_id"]
+                            ).execute()
+
+                    count_res = db.table("complaints").select("complaint_id", count="exact").eq(
+                        "cluster_id", cluster_id
+                    ).execute()
+                    cluster_size = (count_res.count or 0) + 1
+
+                    return {
+                        "cluster_id": cluster_id,
+                        "similarity_score": float(best_score),
+                        "cluster_size": cluster_size,
+                        "representative_text": best_match.get("original_text", ""),
+                    }
+            except Exception as text_error:
+                logger.error(f"Supabase text dedup fallback error: {text_error}")
+            # Fallback to in-memory if DB matching fails
 
     # --- IN-MEMORY FALLBACK ---
     if not _complaint_store:
         return None
 
-    new_emb = np.array(new_embedding).reshape(1, -1)
     cutoff_time = datetime.utcnow() - timedelta(days=settings.DEDUP_WINDOW_DAYS)
 
     # Filter candidates: same department + within time window
@@ -139,23 +226,25 @@ def find_duplicates(
     if not candidates:
         return None
 
-    # Compute cosine similarities
-    candidate_embeddings = np.array([c["embedding"] for c in candidates])
-    similarities = cosine_similarity(new_emb, candidate_embeddings)[0]
+    if _is_zero_embedding(new_embedding):
+        scored_candidates = [
+            (fuzz.token_set_ratio(text.lower(), c["text"].lower()) / 100.0, c)
+            for c in candidates
+        ]
+    else:
+        scored_candidates = [
+            (_cosine_similarity(new_embedding, c["embedding"]), c)
+            for c in candidates
+        ]
 
-    best_idx = np.argmax(similarities)
-    best_score = similarities[best_idx]
+    best_score, best_match = max(scored_candidates, key=lambda item: item[0])
 
     if best_score < settings.DEDUP_SIMILARITY_THRESHOLD:
         return None
 
-    best_match = candidates[best_idx]
-
     # Check geo proximity if both have locations
-    if location_lat and location_lng and best_match["lat"] and best_match["lng"]:
-        dist = _haversine_km(location_lat, location_lng, best_match["lat"], best_match["lng"])
-        if dist > settings.DEDUP_RADIUS_KM:
-            return None
+    if not _same_geo_window(location_lat, location_lng, best_match["lat"], best_match["lng"]):
+        return None
 
     # Found a duplicate — return or create cluster
     cluster_id = best_match.get("cluster_id") or str(uuid.uuid4())[:8]

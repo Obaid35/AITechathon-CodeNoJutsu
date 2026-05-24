@@ -21,6 +21,7 @@
   {"name": "Saddar, Rawalpindi", "aliases": ["saddar", "sadar"], "lat": 33.5980, "lng": 73.0480, "city": "Rawalpindi", "type": "area"},
   {"name": "Bahria Town, Rawalpindi", "aliases": ["bahria town", "bahria", "bahria town phase"], "lat": 33.5230, "lng": 73.0890, "city": "Rawalpindi", "type": "housing"},
   {"name": "Lahore", "aliases": ["lahore", "lhr"], "lat": 31.5204, "lng": 74.3587, "city": "Lahore", "type": "city"},
+  {"name": "UET Lahore", "aliases": ["uet", "uet lahore", "university of engineering and technology", "uet ma", "uet mein"], "lat": 31.5791, "lng": 74.3581, "city": "Lahore", "type": "university"},
   {"name": "Gulberg, Lahore", "aliases": ["gulberg", "gulberg 3", "gulberg III"], "lat": 31.5170, "lng": 74.3430, "city": "Lahore", "type": "area"},
   {"name": "DHA, Lahore", "aliases": ["dha lahore", "defence", "defense lahore", "DHA phase"], "lat": 31.4780, "lng": 74.3760, "city": "Lahore", "type": "housing"},
   {"name": "Model Town, Lahore", "aliases": ["model town", "model town lahore"], "lat": 31.4850, "lng": 74.3250, "city": "Lahore", "type": "area"},

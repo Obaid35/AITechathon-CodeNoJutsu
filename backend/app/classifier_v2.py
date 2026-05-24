@@ -15,14 +15,38 @@ Pipeline:
 import json
 import logging
 import os
+import re
 from pathlib import Path
 
-import torch
-import numpy as np
-from transformers import AutoTokenizer, AutoModelForSequenceClassification, pipeline
-from keybert import KeyBERT
-from groq import Groq
+try:
+    import torch
+    from transformers import AutoTokenizer, AutoModelForSequenceClassification, pipeline
+except ImportError as e:
+    torch = None
+    AutoTokenizer = None
+    AutoModelForSequenceClassification = None
+    pipeline = None
+    _TRANSFORMERS_IMPORT_ERROR = e
+else:
+    _TRANSFORMERS_IMPORT_ERROR = None
+
+try:
+    from keybert import KeyBERT
+except ImportError as e:
+    KeyBERT = None
+    _KEYBERT_IMPORT_ERROR = e
+else:
+    _KEYBERT_IMPORT_ERROR = None
+
+try:
+    from groq import Groq
+except ImportError as e:
+    Groq = None
+    _GROQ_IMPORT_ERROR = e
+else:
+    _GROQ_IMPORT_ERROR = None
 from app.config import settings
+from app.geo_extractor import extract_location_from_text
 from app.models import Department, UrgencyLevel, Sentiment
 
 logger = logging.getLogger(__name__)
@@ -34,7 +58,20 @@ URG_MODEL_DIR = MODELS_DIR / "xlmr-urgency" / "final"
 SENT_MODEL_DIR = MODELS_DIR / "xlmr-sentiment" / "final"
 
 # ── Groq Client (minimal usage) ───────────────
-client = Groq(api_key=settings.GROQ_API_KEY)
+client = None
+
+
+def get_groq_client():
+    """Create the Groq client lazily so missing config never breaks startup."""
+    global client
+    if client is not None:
+        return client
+    if Groq is None:
+        raise RuntimeError(f"groq package is not installed: {_GROQ_IMPORT_ERROR}")
+    if not settings.GROQ_API_KEY:
+        raise RuntimeError("GROQ_API_KEY is not configured")
+    client = Groq(api_key=settings.GROQ_API_KEY)
+    return client
 
 # ── Lazy-loaded models ─────────────────────────
 _dept_model = None
@@ -56,6 +93,11 @@ _keybert_model = None
 # ── Model Loaders ──────────────────────────────
 def _load_model(model_dir: Path):
     """Load a fine-tuned model + tokenizer + label map."""
+    if torch is None or AutoTokenizer is None or AutoModelForSequenceClassification is None:
+        raise RuntimeError(f"transformers/torch dependencies are not installed: {_TRANSFORMERS_IMPORT_ERROR}")
+    if not model_dir.exists():
+        raise RuntimeError(f"model directory not found: {model_dir}")
+
     tokenizer = AutoTokenizer.from_pretrained(str(model_dir))
     model = AutoModelForSequenceClassification.from_pretrained(str(model_dir))
     model.eval()
@@ -100,6 +142,8 @@ def get_ner_pipeline():
     """Load XLM-R based multilingual NER for location extraction."""
     global _ner_pipeline
     if _ner_pipeline is None:
+        if pipeline is None:
+            raise RuntimeError(f"transformers pipeline is not available: {_TRANSFORMERS_IMPORT_ERROR}")
         logger.info("🧠 Loading XLM-R NER model...")
         _ner_pipeline = pipeline(
             "ner",
@@ -114,6 +158,8 @@ def get_keybert():
     """Load KeyBERT for keyword extraction."""
     global _keybert_model
     if _keybert_model is None:
+        if KeyBERT is None:
+            raise RuntimeError(f"keybert package is not installed: {_KEYBERT_IMPORT_ERROR}")
         logger.info("🧠 Loading KeyBERT...")
         _keybert_model = KeyBERT(model="paraphrase-multilingual-MiniLM-L12-v2")
         logger.info("✅ KeyBERT loaded")
@@ -146,10 +192,10 @@ def extract_location_ner(text: str) -> str | None:
         if locations:
             # Return the longest location (most specific)
             return max(locations, key=len)
-        return None
+        return extract_location_from_text(text)
     except Exception as e:
         logger.warning(f"NER extraction failed: {e}")
-        return None
+        return extract_location_from_text(text)
 
 
 def extract_keywords(text: str, top_n: int = 5) -> list[str]:
@@ -173,7 +219,8 @@ def translate_with_groq(text: str) -> dict:
     This is the MINIMAL Groq usage — everything else is local.
     """
     try:
-        response = client.chat.completions.create(
+        groq_client = get_groq_client()
+        response = groq_client.chat.completions.create(
             model=settings.GROQ_MODEL,
             messages=[
                 {
@@ -215,6 +262,49 @@ URGENCY_SCORE_MAP = {
     "medium": 0.50,
     "low": 0.25,
 }
+
+POLICE_CRIME_PATTERN = re.compile(
+    r"(?<![a-z0-9])(?:chor|chori|dakait|dakaiti|dacoit|robbery|loot|looting|theft|thief|snatch|snatching|fir|police)(?![a-z0-9])"
+)
+ACTIVE_DANGER_PATTERN = re.compile(
+    r"(?<![a-z0-9])(?:help|bachao|urgent|emergency|abhi|now)(?![a-z0-9])|"
+    r"(?:aa?|a)\s+gaye|ghar\s+(?:me|mein|mai)|inside|entered"
+)
+FIRE_DANGER_PATTERN = re.compile(
+    r"(?<![a-z0-9])(?:aag|fire|blast|explosion|jalaa)(?![a-z0-9])"
+)
+
+
+def _apply_safety_overrides(
+    text: str,
+    department: str,
+    urgency: str,
+    urgency_score: float,
+    sentiment: str,
+) -> tuple[str, str, float, str]:
+    """
+    Deterministic triage guardrails for obvious emergencies.
+    ML can under-call rare Roman Urdu phrasing; safety keywords should win.
+    """
+    text_lower = text.lower()
+
+    if POLICE_CRIME_PATTERN.search(text_lower):
+        department = "police_security"
+        if ACTIVE_DANGER_PATTERN.search(text_lower) or "chor" in text_lower:
+            urgency = "critical"
+            urgency_score = max(urgency_score, 0.95)
+        else:
+            urgency = "high"
+            urgency_score = max(urgency_score, 0.78)
+        if sentiment == "neutral":
+            sentiment = "angry"
+
+    if FIRE_DANGER_PATTERN.search(text_lower):
+        department = "fire_emergency"
+        urgency = "critical"
+        urgency_score = max(urgency_score, 0.95)
+
+    return department, urgency, urgency_score, sentiment
 
 
 # ── Main Classification Function ──────────────
@@ -268,6 +358,14 @@ async def classify_complaint(text: str) -> dict:
 
         if sentiment not in [s.value for s in Sentiment]:
             sentiment = "neutral"
+
+        department, urgency, urgency_score, sentiment = _apply_safety_overrides(
+            text=text,
+            department=department,
+            urgency=urgency,
+            urgency_score=urgency_score,
+            sentiment=sentiment,
+        )
 
         # ── LOCAL: Location NER ──
         extracted_location = extract_location_ner(text)
@@ -328,6 +426,7 @@ def _fallback_classification(text: str) -> dict:
         "health": ["hospital", "doctor", "dawai", "medicine", "ambulance", "beemar"],
         "police_security": ["police", "chori", "theft", "harass", "missing", "violence", "dakait"],
         "fire_emergency": ["aag", "fire", "blast", "explosion", "jalaa"],
+        "telecom": ["internet", "net", "wifi", "wi-fi", "ptcl", "broadband", "signal", "mobile data", "network"],
     }
 
     department = "general_complaint"
@@ -349,15 +448,38 @@ def _fallback_classification(text: str) -> dict:
         urgency = "high"
         urgency_score = 0.75
 
+    angry_kw = [
+        "pagal", "pagall", "stupid", "idiot", "bewaqoof", "jahil", "bakwas",
+        "lanat", "fazool", "ghatiya", "nonsense", "shame"
+    ]
+    frustrated_kw = [
+        "tang", "pareshan", "preshan", "masla", "problem", "issue", "ni a rha",
+        "nahi aa raha", "nahi a raha", "band", "slow", "roz", "bar bar"
+    ]
+
+    sentiment = "neutral"
+    if any(kw in text_lower for kw in angry_kw):
+        sentiment = "angry"
+    elif any(kw in text_lower for kw in frustrated_kw):
+        sentiment = "frustrated"
+
+    department, urgency, urgency_score, sentiment = _apply_safety_overrides(
+        text=text,
+        department=department,
+        urgency=urgency,
+        urgency_score=urgency_score,
+        sentiment=sentiment,
+    )
+
     return {
         "department": department,
         "sub_category": "general",
         "urgency": urgency,
         "urgency_score": urgency_score,
-        "sentiment": "neutral",
+        "sentiment": sentiment,
         "keywords": [],
         "normalized_text": text,
-        "extracted_location": None,
+        "extracted_location": extract_location_from_text(text),
         "suggested_response_urdu": "آپ کی شکایت موصول ہو گئی ہے۔ متعلقہ محکمے کو بھیج دی گئی ہے۔",
         "model_confidence": {"department": 0, "urgency": 0, "sentiment": 0},
         "pipeline_version": "v2-fallback",

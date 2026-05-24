@@ -31,7 +31,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from app.models import ComplaintSubmit, ComplaintResponse, ClassificationResult, GeoLocation
-from app.classifier import classify_complaint
+from app.classifier_v2 import classify_complaint
 from app.geo_extractor import resolve_location, load_gazetteer
 from app.dedup import generate_embedding, add_complaint, find_duplicates, get_all_clusters
 from app.config import settings
@@ -148,6 +148,23 @@ DEPARTMENT_ROUTING = {
 
 
 # ── Startup / Shutdown ─────────────────────────────
+# ── Demo Seed Data ─────────────────────────────────
+SEED_COMPLAINTS = [
+    {"text": "Hamary ilaqe mein 3 din se pani nahi aa raha, tanker mafia ne qabza kar liya hai Lahore mein", "source": "web"},
+    {"text": "Bijli ka transformer phat gaya hai aur poora mohalla andhera hai Islamabad G-9 mein", "source": "whatsapp"},
+    {"text": "Gas ka pressure itna kam hai k chulha hi nahi jalta, khana kaise pakayen Karachi mein", "source": "web"},
+    {"text": "Sarak par itna bada gaddha hai k 2 gaarian kharab ho chuki hain Rawalpindi mein", "source": "ivr"},
+    {"text": "Nale ka paani ghar mein aa raha hai bohut gandagi hai Faisalabad mein", "source": "web"},
+    {"text": "Hospital mein doctor nahi hai aur emergency band hai bachon ko kahan le jayen Multan mein", "source": "whatsapp"},
+    {"text": "School ki building girne wali hai bachon ki jaan ko khatra hai Peshawar mein", "source": "web"},
+    {"text": "Chori ho gayi hai police thana mein FIR nahi likhte koi sunwai nahi Quetta mein", "source": "ivr"},
+    {"text": "Godam mein aag lag gayi hai fire brigade nahi aa raha please help Hyderabad mein", "source": "whatsapp"},
+    {"text": "Metro bus ki timing theek nahi roz late aati hai Lahore mein", "source": "web"},
+    {"text": "Internet aur mobile signal bilkul nahi aata pichle hafte se tower band hai Abbottabad mein", "source": "web"},
+    {"text": "Patwari riswat maang raha hai zameen ki registry nahi kar raha Sialkot mein", "source": "ivr"},
+]
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Load resources on startup."""
@@ -161,6 +178,26 @@ async def lifespan(app: FastAPI):
         logger.info("✅ Embedding model ready")
     except Exception as e:
         logger.warning(f"⚠️ Embedding model load deferred: {e}")
+
+    # Auto-seed if no complaints exist
+    db = get_db()
+    has_data = False
+    if db:
+        try:
+            res = db.table("complaints").select("complaint_id").limit(1).execute()
+            has_data = bool(res.data)
+        except Exception:
+            pass
+    if settings.AUTO_SEED_DEMO_DATA and not has_data and not complaints_db:
+        logger.info("📦 No complaints found — auto-seeding demo data...")
+        for seed in SEED_COMPLAINTS:
+            try:
+                c = ComplaintSubmit(text=seed["text"], source=seed["source"])
+                await submit_complaint(c)
+                logger.info(f"  ✅ Seeded: {seed['text'][:50]}...")
+            except Exception as e:
+                logger.warning(f"  ⚠️ Seed failed: {e}")
+        logger.info(f"📦 Seeded {len(SEED_COMPLAINTS)} demo complaints")
 
     logger.info("✅ NaqsKAR ready to accept complaints")
     yield
@@ -227,43 +264,67 @@ async def pipeline_info():
             },
             {
                 "id": 2,
-                "name": "Multi-Label Classifier",
-                "tech": "Groq Llama 3.1 8B (structured JSON output)",
-                "description": "Predicts department, sub-category, urgency (0-1), and sentiment",
-                "type": "LLM",
+                "name": "Department Classifier",
+                "tech": "Fine-tuned XLM-RoBERTa (local, 82% accuracy)",
+                "description": "Classifies complaint into 13 government departments using locally trained model",
+                "type": "Local ML",
             },
             {
                 "id": 3,
-                "name": "Geo-Extractor",
-                "tech": "RapidFuzz + Custom Pakistan Gazetteer (46+ locations)",
-                "description": "Extracts location entities and resolves to lat/lng via fuzzy matching",
-                "type": "NLP",
+                "name": "Urgency Classifier",
+                "tech": "Fine-tuned XLM-RoBERTa (local)",
+                "description": "Predicts urgency level: critical, high, medium, low",
+                "type": "Local ML",
             },
             {
                 "id": 4,
+                "name": "Sentiment Classifier",
+                "tech": "Fine-tuned XLM-RoBERTa (local)",
+                "description": "Detects citizen sentiment: angry, frustrated, neutral, polite",
+                "type": "Local ML",
+            },
+            {
+                "id": 5,
+                "name": "Location Extractor (NER)",
+                "tech": "Davlan/xlm-roberta-base-ner-hrl (local, pre-trained)",
+                "description": "Extracts location entities from raw complaint text",
+                "type": "Local ML",
+            },
+            {
+                "id": 6,
+                "name": "Keyword Extractor",
+                "tech": "KeyBERT + paraphrase-multilingual-MiniLM-L12-v2 (local)",
+                "description": "Extracts top keywords using MMR for diversity",
+                "type": "Local ML",
+            },
+            {
+                "id": 7,
+                "name": "Geo-Resolver",
+                "tech": "RapidFuzz + Custom Pakistan Gazetteer (46+ locations)",
+                "description": "Fuzzy-matches extracted locations to lat/lng coordinates",
+                "type": "NLP",
+            },
+            {
+                "id": 8,
                 "name": "Semantic Deduplicator",
                 "tech": "sentence-transformers (paraphrase-multilingual-MiniLM-L12-v2) + cosine similarity",
                 "description": "Embeds complaints locally, clusters duplicates within 7-day window and 500m radius",
                 "type": "Local ML",
             },
             {
-                "id": 5,
+                "id": 9,
                 "name": "Auto-Router",
                 "tech": "Custom routing engine with SLA-aware department directory",
                 "description": "Maps classified complaints to the responsible authority with SLA and escalation path",
                 "type": "Rules Engine",
             },
-            {
-                "id": 6,
-                "name": "Heatmap Dashboard",
-                "tech": "Next.js + react-leaflet + Recharts",
-                "description": "Live filterable map of clustered complaints by district and category",
-                "type": "Frontend",
-            },
         ],
         "models_used": [
-            {"name": "Llama 3.1 8B", "provider": "Groq", "purpose": "Classification + NER"},
+            {"name": "XLM-RoBERTa (fine-tuned)", "provider": "Local", "purpose": "Department, Urgency, Sentiment classification"},
+            {"name": "XLM-RoBERTa NER", "provider": "Local (HuggingFace)", "purpose": "Location entity extraction"},
+            {"name": "KeyBERT", "provider": "Local", "purpose": "Keyword extraction"},
             {"name": "paraphrase-multilingual-MiniLM-L12-v2", "provider": "Local (HuggingFace)", "purpose": "Semantic embeddings for deduplication"},
+            {"name": "Llama 3.1 8B", "provider": "Groq (Cloud)", "purpose": "Translation only (Roman Urdu → English)"},
         ],
         "languages_supported": ["Roman Urdu", "Urdu (اردو)", "English", "Code-mixed (Roman Urdu + English)"],
     }
@@ -308,6 +369,7 @@ async def submit_complaint(complaint: ComplaintSubmit):
     cluster_info = find_duplicates(
         new_embedding=embedding,
         department=classification.department.value,
+        text=normalized_text,
         location_lat=location.latitude if location else None,
         location_lng=location.longitude if location else None,
     )
@@ -327,6 +389,7 @@ async def submit_complaint(complaint: ComplaintSubmit):
         department=classification.department.value,
         location_lat=location.latitude if location else None,
         location_lng=location.longitude if location else None,
+        cluster_id=cluster_id,
     )
 
     # Step 6: Get routing info

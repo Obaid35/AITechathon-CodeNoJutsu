@@ -1,13 +1,43 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useSyncExternalStore } from "react";
 import SubmitPanel from "@/components/SubmitPanel";
 import ComplaintResult from "@/components/ComplaintResult";
 import ComplaintFeed from "@/components/ComplaintFeed";
 import StatsPanel from "@/components/StatsPanel";
 import MapPanel from "@/components/MapPanel";
 
-const API_BASE = "http://127.0.0.1:8000/api";
+const DEFAULT_API_BASE = "http://127.0.0.1:8000/api";
+
+const getApiBase = () => {
+  if (process.env.NEXT_PUBLIC_API_BASE) {
+    return process.env.NEXT_PUBLIC_API_BASE;
+  }
+
+  if (typeof window !== "undefined") {
+    const { protocol, hostname } = window.location;
+    return `${protocol}//${hostname}:8000/api`;
+  }
+
+  return DEFAULT_API_BASE;
+};
+
+const API_BASE = getApiBase();
+const ADMIN_STORAGE_KEY = "naqskar_admin";
+const ADMIN_CHANGE_EVENT = "naqskar-admin-change";
+
+const subscribeToAdmin = (onStoreChange: () => void) => {
+  window.addEventListener("storage", onStoreChange);
+  window.addEventListener(ADMIN_CHANGE_EVENT, onStoreChange);
+
+  return () => {
+    window.removeEventListener("storage", onStoreChange);
+    window.removeEventListener(ADMIN_CHANGE_EVENT, onStoreChange);
+  };
+};
+
+const getAdminSnapshot = () => localStorage.getItem(ADMIN_STORAGE_KEY) === "true";
+const getServerAdminSnapshot = () => false;
 
 export type Complaint = {
   id: string;
@@ -35,71 +65,102 @@ export type Complaint = {
   processed_at: string;
 };
 
+type ApiComplaint = Partial<Complaint> & {
+  department?: string;
+  sub_category?: string;
+  urgency?: string;
+  urgency_score?: number;
+  sentiment?: string;
+  keywords?: string[];
+};
+
 export default function Home() {
   const [activeView, setActiveView] = useState<"ai" | "feed" | "map" | "stats">("ai");
   const [lastResult, setLastResult] = useState<Complaint | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [complaints, setComplaints] = useState<Complaint[]>([]);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // Auth state
-  const [isAdmin, setIsAdmin] = useState(false);
+  const isAdmin = useSyncExternalStore(
+    subscribeToAdmin,
+    getAdminSnapshot,
+    getServerAdminSnapshot
+  );
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [loginForm, setLoginForm] = useState({ username: "", password: "" });
 
-  useEffect(() => {
-    const storedAdmin = localStorage.getItem("naqskar_admin");
-    if (storedAdmin === "true") {
-      setIsAdmin(true);
+  const normalizeComplaint = (c: ApiComplaint): Complaint => ({
+    id: c.id || crypto.randomUUID(),
+    original_text: c.original_text || "",
+    normalized_text: c.normalized_text || c.original_text || "",
+    classification: c.classification || {
+      department: c.department || "general_complaint",
+      sub_category: c.sub_category || "general",
+      urgency: c.urgency || "medium",
+      urgency_score: c.urgency_score || 0.5,
+      sentiment: c.sentiment || "neutral",
+      keywords: c.keywords || [],
+    },
+    location: c.location || null,
+    cluster_id: c.cluster_id || null,
+    cluster_size: c.cluster_size || null,
+    suggested_response_urdu: c.suggested_response_urdu || "",
+    source: c.source || "web",
+    processed_at: c.processed_at || new Date().toISOString(),
+  });
+
+  const refreshComplaints = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/complaints?limit=50`);
+      if (!res.ok) {
+        throw new Error(`Complaint feed failed (${res.status})`);
+      }
+      const data: { complaints?: ApiComplaint[] } = await res.json();
+      setComplaints((data.complaints || []).map(normalizeComplaint));
+    } catch (err) {
+      console.warn("Fetch error:", err);
     }
-    refreshComplaints();
   }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void refreshComplaints();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [refreshComplaints]);
 
   const handleSubmit = async (text: string, source: string) => {
     setIsProcessing(true);
     setLastResult(null);
+    setSubmitError(null);
     try {
       const res = await fetch(`${API_BASE}/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text, source }),
       });
-      const data: Complaint = await res.json();
+      const data = await res.json();
+      if (!res.ok) {
+        const message = typeof data?.detail === "string" ? data.detail : `Submit failed (${res.status})`;
+        throw new Error(message);
+      }
       setLastResult(data);
       setComplaints((prev) => [data, ...prev]);
     } catch (err) {
-      console.error("Submit error:", err);
+      console.warn("Submit error:", err);
+      setSubmitError(err instanceof Error ? err.message : "Could not analyze complaint.");
     } finally {
       setIsProcessing(false);
-    }
-  };
-
-  const refreshComplaints = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/complaints?limit=50`);
-      const data = await res.json();
-      const normalized = (data.complaints || []).map((c: any) => ({
-        ...c,
-        classification: c.classification || {
-          department: c.department || "general_complaint",
-          sub_category: c.sub_category || "general",
-          urgency: c.urgency || "medium",
-          urgency_score: c.urgency_score || 0.5,
-          sentiment: c.sentiment || "neutral",
-          keywords: c.keywords || [],
-        },
-        processed_at: c.processed_at || new Date().toISOString(),
-      }));
-      setComplaints(normalized);
-    } catch (err) {
-      console.error("Fetch error:", err);
     }
   };
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (loginForm.username === "admin" && loginForm.password === "pakistan") {
-      setIsAdmin(true);
-      localStorage.setItem("naqskar_admin", "true");
+      localStorage.setItem(ADMIN_STORAGE_KEY, "true");
+      window.dispatchEvent(new Event(ADMIN_CHANGE_EVENT));
       setShowLoginModal(false);
       setLoginForm({ username: "", password: "" });
     } else {
@@ -108,8 +169,8 @@ export default function Home() {
   };
 
   const handleLogout = () => {
-    setIsAdmin(false);
-    localStorage.removeItem("naqskar_admin");
+    localStorage.removeItem(ADMIN_STORAGE_KEY);
+    window.dispatchEvent(new Event(ADMIN_CHANGE_EVENT));
   };
 
   return (
@@ -177,6 +238,11 @@ export default function Home() {
                 </h1>
               )}
               <SubmitPanel onSubmit={handleSubmit} isProcessing={isProcessing} compact={!!lastResult} />
+              {submitError && (
+                <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-semibold text-red-700">
+                  {submitError}
+                </div>
+              )}
             </div>
 
             {/* Results Bento Grid */}
